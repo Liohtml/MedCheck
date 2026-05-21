@@ -18,7 +18,7 @@ from typing import Any, ClassVar
 from urllib.parse import urlparse
 
 import httpx
-from Crypto.Cipher import AES
+from Crypto.Cipher import AES  # nosec B413
 
 from medcheck.core.context import DicomSeries
 from medcheck.providers.base import DataProvider
@@ -100,7 +100,8 @@ class EasyRadiologyProvider(DataProvider):
             data = resp.json()
         if data.get("hasError"):
             raise ValueError(f"Viewer model error: {data.get('errorMessage', '')}")
-        return data["exams"][0]
+        result: dict[str, Any] = data["exams"][0]
+        return result
 
     def _download_and_decrypt(self, zip_url: str, access_key: str, exam_hash: str) -> list[DicomSeries]:
         with tempfile.TemporaryDirectory() as tmpdir:
