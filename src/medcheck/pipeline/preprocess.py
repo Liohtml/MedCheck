@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from typing import Any
 
 import numpy as np
 
@@ -53,7 +54,7 @@ def detect_plane(description: str) -> str:
 # ---------------------------------------------------------------------------
 
 
-def _sort_key(ds) -> float:
+def _sort_key(ds: Any) -> float:
     """Return a numeric sort key for a DICOM slice dataset."""
     loc = getattr(ds, "SliceLocation", None)
     if loc is not None:
@@ -70,7 +71,7 @@ def _sort_key(ds) -> float:
     return 0.0
 
 
-def _extract_pixel_array(ds) -> np.ndarray:
+def _extract_pixel_array(ds: Any) -> np.ndarray[Any, np.dtype[Any]]:
     """Extract the 2-D pixel array from a DICOM dataset.
 
     Tries ``ds.pixel_array`` first (requires pydicom with correct transfer
@@ -79,7 +80,8 @@ def _extract_pixel_array(ds) -> np.ndarray:
     in-memory ``Dataset`` objects used in tests).
     """
     try:
-        return ds.pixel_array.astype(np.float32)
+        arr_f: np.ndarray[Any, np.dtype[Any]] = ds.pixel_array.astype(np.float32)
+        return arr_f
     except Exception:
         rows = int(ds.Rows)
         cols = int(ds.Columns)
