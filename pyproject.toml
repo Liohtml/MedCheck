@@ -62,6 +62,9 @@ packages = ["src/medcheck"]
 [tool.pytest.ini_options]
 strict-markers = true
 testpaths = ["tests"]
+tmp_path_retention_count = 3
+tmp_path_retention_policy = "failed"
+addopts = "--basetemp=D:/CodeENV/MedCheck/.pytest_tmp"
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
     "network: marks tests that require network access",
