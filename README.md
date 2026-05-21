@@ -104,8 +104,8 @@ uv run medcheck serve
 
 | Source | Type | Notes |
 |---|---|---|
-| **Local DICOM** | `file://` | Supports single files and directory trees |
-| **easyRadiology** | REST API | Requires `EASYRAD_API_KEY` |
+| **Local DICOM** | Folder / ZIP | Point to any directory or ZIP of DICOM files |
+| **easyRadiology** | Portal link | Uses access code + date of birth (provided by your clinic) |
 | **Custom providers** | Plugin | See [docs/providers.md](docs/providers.md) |
 
 ---
@@ -119,26 +119,25 @@ cp .env.example .env
 ```
 
 ```dotenv
-# .env.example
-ANTHROPIC_API_KEY=
-OPENAI_API_KEY=
-GOOGLE_API_KEY=
-EASYRAD_API_KEY=
+# LLM API Keys (at least one needed for Vision analysis)
+ANTHROPIC_API_KEY=        # https://console.anthropic.com/settings/keys
+OPENAI_API_KEY=           # https://platform.openai.com/api-keys
+GOOGLE_API_KEY=           # https://aistudio.google.com/apikey
 
-# Optional overrides
-MEDCHECK_DEFAULT_MODEL=claude-opus-4-7
-MEDCHECK_REPORT_FORMAT=pdf
+# Defaults
+MEDCHECK_LLM_PROVIDER=claude   # claude | openai | gemini | local
+MEDCHECK_LANGUAGE=en           # en | de
 MEDCHECK_PORT=8080
 ```
+
+> **Note:** easyRadiology requires no API key. Authentication uses the access code + date of birth provided by your radiology clinic (via SMS, email, or letter).
 
 ### Docker environment variables
 
 ```bash
-docker run \
-  -e ANTHROPIC_API_KEY=sk-ant-... \
-  -e MEDCHECK_DEFAULT_MODEL=claude-opus-4-7 \
-  -e MEDCHECK_REPORT_FORMAT=pdf \
-  ghcr.io/liohtml/medcheck:latest
+docker run -p 8080:8080 \
+  -e ANTHROPIC_API_KEY=sk-... \
+  ghcr.io/liohtml/medcheck:lite
 ```
 
 ---
@@ -148,39 +147,31 @@ docker run \
 Define analysis pipelines as YAML and commit them alongside your code:
 
 ```yaml
-# workflows/brain-mri-full.yml
-name: brain-mri-full
-description: Full brain MRI analysis with FLAIR and T1 sequences
+# workflows/full_analysis.yml
+name: full_analysis
+description: Complete MRI analysis with ML and Vision-LLM
 
 steps:
-  - name: preprocess
-    op: normalize
-    params:
-      modality: MRI
-      sequences: [FLAIR, T1]
-
-  - name: segment
-    op: local_model
-    params:
-      model: monai-brain-seg-v2
-
-  - name: analyze
-    op: vision_llm
-    params:
-      model: claude-opus-4-7
-      prompt_template: prompts/neuro-radiology.txt
-
-  - name: report
-    op: render_report
-    params:
-      format: [pdf, html]
-      include_annotations: true
+  - ingest:
+  - preprocess:
+      normalize: true
+      auto_detect_anatomy: true
+  - ml_analysis:
+      models: [anomaly_detection, feature_extraction]
+  - vision_analysis:
+      provider: claude
+      clinical_context:
+        symptoms: "Medial knee pain after sports injury"
+        trauma: "Valgus stress, 10 days ago"
+  - report:
+      format: pdf
+      language: en
 ```
 
-Run the workflow:
+Run a workflow:
 
 ```bash
-medcheck run workflows/brain-mri-full.yml --input /data/scans/patient_001/
+medcheck analyze --source ./dicoms --workflow workflows/default.yml
 ```
 
 ---
