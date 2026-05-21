@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
+from typing import Any
 
 from medcheck.core.context import ClinicalContext, StructureFinding
 
@@ -24,7 +25,7 @@ class AnalysisResult:
     limitations: list[str] = field(default_factory=list)
 
 
-def parse_llm_json(raw: str) -> dict:
+def parse_llm_json(raw: str) -> dict[str, Any]:
     """Extract and parse the first valid JSON object from *raw* using brace-depth tracking."""
     start = raw.index("{")
     depth = 0
@@ -34,7 +35,8 @@ def parse_llm_json(raw: str) -> dict:
         elif ch == "}":
             depth -= 1
         if depth == 0:
-            return json.loads(raw[start : i + 1])
+            result: dict[str, Any] = json.loads(raw[start : i + 1])
+            return result
     raise ValueError("No valid JSON found")
 
 
@@ -67,6 +69,6 @@ class LLMProvider(ABC):
         self,
         images: list[AnnotatedImage],
         prompt: str,
-        context: ClinicalContext,
+        context: ClinicalContext | None,
     ) -> AnalysisResult:
         """Run image analysis and return structured results."""

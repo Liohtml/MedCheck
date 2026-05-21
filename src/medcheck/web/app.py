@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
@@ -24,15 +25,15 @@ def create_app() -> FastAPI:
     templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
     @app.get("/health")
-    def health():
+    def health() -> dict[str, Any]:
         return {"status": "ok", "version": __version__}
 
     @app.get("/", response_class=HTMLResponse)
-    def index(request: Request):
+    def index(request: Request) -> Any:
         return templates.TemplateResponse(request, "index.html", {"version": __version__})
 
     @app.post("/api/analyze")
-    def analyze():
+    def analyze() -> dict[str, Any]:
         return {"status": "not_implemented"}
 
     return app

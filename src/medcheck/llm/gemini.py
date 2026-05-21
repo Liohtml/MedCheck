@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+from typing import Any
 
 from medcheck.core.context import ClinicalContext
 from medcheck.llm.base import AnalysisResult, AnnotatedImage, LLMProvider, parse_llm_response
@@ -22,7 +23,7 @@ class GeminiProvider(LLMProvider):
         self,
         images: list[AnnotatedImage],
         prompt: str,
-        context: ClinicalContext,
+        context: ClinicalContext | None,
     ) -> AnalysisResult:
         import google.generativeai as genai
 
@@ -32,7 +33,7 @@ class GeminiProvider(LLMProvider):
         genai.configure(api_key=api_key)
         model = genai.GenerativeModel(self.model)
 
-        parts: list = []
+        parts: list[Any] = []
         for img in images:
             parts.append({"mime_type": "image/png", "data": img.image_bytes})
             if img.description:
