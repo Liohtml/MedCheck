@@ -30,7 +30,7 @@ class DicomSeries:
     modality: str = ""
     series_number: int = 0
     slices: list[Any] = field(default_factory=list)
-    metadata: dict = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -71,14 +71,14 @@ class PipelineContext:
     provider_name: str = "local"
     credentials: dict[str, str] = field(default_factory=dict)
     study: StudyInfo = field(default_factory=StudyInfo)
-    volumes: dict = field(default_factory=dict)
+    volumes: dict[str, Any] = field(default_factory=dict)
     detected_anatomy: str | None = None
-    detected_planes: dict = field(default_factory=dict)
+    detected_planes: dict[str, Any] = field(default_factory=dict)
     clinical_context: ClinicalContext | None = None
-    anomaly_scores: dict = field(default_factory=dict)
-    top_slices: dict = field(default_factory=dict)
-    signal_analysis: dict = field(default_factory=dict)
-    annotated_images: dict = field(default_factory=dict)
+    anomaly_scores: dict[str, Any] = field(default_factory=dict)
+    top_slices: dict[str, Any] = field(default_factory=dict)
+    signal_analysis: dict[str, Any] = field(default_factory=dict)
+    annotated_images: dict[str, Any] = field(default_factory=dict)
     findings: list[StructureFinding] = field(default_factory=list)
     overall_impression: str = ""
     clinical_correlation: str = ""

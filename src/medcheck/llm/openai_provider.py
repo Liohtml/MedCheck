@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 import os
+from typing import Any
 
 from medcheck.core.context import ClinicalContext
 from medcheck.llm.base import AnalysisResult, AnnotatedImage, LLMProvider, parse_llm_response
@@ -23,7 +24,7 @@ class OpenAIProvider(LLMProvider):
         self,
         images: list[AnnotatedImage],
         prompt: str,
-        context: ClinicalContext,
+        context: ClinicalContext | None,
     ) -> AnalysisResult:
         from openai import OpenAI
 
@@ -32,7 +33,7 @@ class OpenAIProvider(LLMProvider):
             raise RuntimeError("OPENAI_API_KEY not set")
         client = OpenAI(api_key=api_key)
 
-        content: list[dict] = []
+        content: list[dict[str, Any]] = []
         for img in images:
             b64 = base64.standard_b64encode(img.image_bytes).decode()
             content.append(

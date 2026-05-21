@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 import typer
 from rich.console import Console
@@ -34,7 +35,7 @@ def main(
     pass
 
 
-def _build_registry():
+def _build_registry() -> Any:
     """Create and populate a StepRegistry with all known pipeline steps."""
     from medcheck.core.workflow import StepRegistry
     from medcheck.pipeline.ingest import IngestStep
@@ -52,7 +53,7 @@ def _build_registry():
     return registry
 
 
-def _run_pipeline(ctx, workflow, steps):
+def _run_pipeline(ctx: Any, workflow: Any, steps: Any) -> Any:
     """Run the pipeline and return the final context."""
     from medcheck.core.workflow import WorkflowEngine
 
@@ -71,7 +72,7 @@ def _run_pipeline(ctx, workflow, steps):
     return engine.run(steps=_DEFAULT_STEPS, context=ctx)
 
 
-def _print_summary(ctx) -> None:
+def _print_summary(ctx: Any) -> None:
     """Print a summary of pipeline results."""
     console.print("\n[bold green]Analysis complete.[/bold green]")
     if ctx.report_path:
@@ -152,7 +153,7 @@ def analyze(
 
 @app.command()
 def serve(
-    host: str = typer.Option("0.0.0.0", "--host", help="Bind host"),
+    host: str = typer.Option("0.0.0.0", "--host", help="Bind host"),  # nosec B104
     port: int = typer.Option(8080, "--port", help="Bind port"),
 ) -> None:
     """Start the MedCheck web UI server."""
