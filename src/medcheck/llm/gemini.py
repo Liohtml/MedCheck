@@ -1,11 +1,9 @@
 from __future__ import annotations
 
-import json
 import os
-import re
 
-from medcheck.core.context import ClinicalContext, StructureFinding
-from medcheck.llm.base import AnalysisResult, AnnotatedImage, LLMProvider
+from medcheck.core.context import ClinicalContext
+from medcheck.llm.base import AnalysisResult, AnnotatedImage, LLMProvider, parse_llm_response
 
 
 class GeminiProvider(LLMProvider):
@@ -28,7 +26,10 @@ class GeminiProvider(LLMProvider):
     ) -> AnalysisResult:
         import google.generativeai as genai
 
-        genai.configure(api_key=os.environ["GOOGLE_API_KEY"])
+        api_key = os.environ.get("GOOGLE_API_KEY")
+        if not api_key:
+            raise RuntimeError("GOOGLE_API_KEY not set")
+        genai.configure(api_key=api_key)
         model = genai.GenerativeModel(self.model)
 
         parts: list = []
@@ -41,21 +42,4 @@ class GeminiProvider(LLMProvider):
 
         response = model.generate_content(parts)
         raw = response.text
-        return self._parse_response(raw)
-
-    def _parse_response(self, raw: str) -> AnalysisResult:
-        json_match = re.search(r"\{.*\}", raw, re.DOTALL)
-        if json_match:
-            try:
-                data = json.loads(json_match.group())
-                structures = [StructureFinding(**s) for s in data.get("structures", [])]
-                return AnalysisResult(
-                    structures=structures,
-                    overall_impression=data.get("overall_impression", ""),
-                    clinical_correlation=data.get("clinical_correlation", ""),
-                    limitations=data.get("limitations", []),
-                    raw_response=raw,
-                )
-            except (json.JSONDecodeError, TypeError):
-                pass
-        return AnalysisResult(overall_impression=raw, raw_response=raw)
+        return parse_llm_response(raw)

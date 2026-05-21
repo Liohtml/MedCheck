@@ -87,3 +87,4 @@ class PipelineContext:
     report_format: str = "json"
     report_language: str = "en"
     output_dir: str = ""
+    step_config: dict[str, Any] = field(default_factory=dict)

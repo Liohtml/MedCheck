@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+import html
 import json
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -45,7 +46,7 @@ def generate_json_report(ctx: PipelineContext) -> str:
         top_slices_summary[series] = slices
 
     report: dict[str, Any] = {
-        "generated_at": datetime.utcnow().isoformat() + "Z",
+        "generated_at": datetime.now(timezone.utc).isoformat(),
         "language": ctx.report_language,
         "patient": {
             "name": ctx.patient.name,
@@ -93,7 +94,7 @@ def generate_pdf_report(ctx: PipelineContext) -> str:
     )
 
     output_dir = ctx.output_dir or "."
-    timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
     pdf_path = str(Path(output_dir) / f"report_{timestamp}.pdf")
 
     doc = SimpleDocTemplate(pdf_path, pagesize=A4)
@@ -216,19 +217,22 @@ def generate_pdf_report(ctx: PipelineContext) -> str:
 def generate_html_report(ctx: PipelineContext) -> str:
     """Generate a simple HTML report. Returns the file path."""
     output_dir = ctx.output_dir or "."
-    timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
     html_path = str(Path(output_dir) / f"report_{timestamp}.html")
 
     findings_rows = ""
     for f in ctx.findings:
         findings_rows += (
-            f"<tr><td>{f.name}</td><td>{f.status}</td><td>{f.confidence:.0%}</td><td>{f.findings}</td></tr>\n"
+            f"<tr><td>{html.escape(str(f.name))}</td>"
+            f"<td>{html.escape(str(f.status))}</td>"
+            f"<td>{f.confidence:.0%}</td>"
+            f"<td>{html.escape(str(f.findings))}</td></tr>\n"
         )
 
-    limitations_items = "".join(f"<li>{lim}</li>" for lim in ctx.limitations)
+    limitations_items = "".join(f"<li>{html.escape(str(lim))}</li>" for lim in ctx.limitations)
 
-    html = f"""<!DOCTYPE html>
-<html lang="{ctx.report_language}">
+    html_content = f"""<!DOCTYPE html>
+<html lang="{html.escape(ctx.report_language)}">
 <head>
   <meta charset="UTF-8" />
   <title>MedCheck Radiology Report</title>
@@ -249,14 +253,14 @@ def generate_html_report(ctx: PipelineContext) -> str:
   <h2>Patient Information</h2>
   <table>
     <tr><th>Field</th><th>Value</th></tr>
-    <tr><td>Name</td><td>{ctx.patient.name}</td></tr>
-    <tr><td>Patient ID</td><td>{ctx.patient.patient_id}</td></tr>
-    <tr><td>Date of Birth</td><td>{ctx.patient.birth_date}</td></tr>
-    <tr><td>Sex</td><td>{ctx.patient.sex}</td></tr>
-    <tr><td>Age</td><td>{ctx.patient.age}</td></tr>
-    <tr><td>Study Date</td><td>{ctx.study.date}</td></tr>
-    <tr><td>Study Description</td><td>{ctx.study.description}</td></tr>
-    <tr><td>Institution</td><td>{ctx.study.institution}</td></tr>
+    <tr><td>Name</td><td>{html.escape(ctx.patient.name)}</td></tr>
+    <tr><td>Patient ID</td><td>{html.escape(ctx.patient.patient_id)}</td></tr>
+    <tr><td>Date of Birth</td><td>{html.escape(ctx.patient.birth_date)}</td></tr>
+    <tr><td>Sex</td><td>{html.escape(ctx.patient.sex)}</td></tr>
+    <tr><td>Age</td><td>{html.escape(ctx.patient.age)}</td></tr>
+    <tr><td>Study Date</td><td>{html.escape(ctx.study.date)}</td></tr>
+    <tr><td>Study Description</td><td>{html.escape(ctx.study.description)}</td></tr>
+    <tr><td>Institution</td><td>{html.escape(ctx.study.institution)}</td></tr>
   </table>
 
   <h2>Findings</h2>
@@ -266,10 +270,10 @@ def generate_html_report(ctx: PipelineContext) -> str:
   </table>
 
   <h2>Overall Impression</h2>
-  <p>{ctx.overall_impression or "—"}</p>
+  <p>{html.escape(ctx.overall_impression or "—")}</p>
 
   <h2>Clinical Correlation</h2>
-  <p>{ctx.clinical_correlation or "—"}</p>
+  <p>{html.escape(ctx.clinical_correlation or "—")}</p>
 
   <h2>Limitations</h2>
   <ul>{limitations_items or "<li>None specified.</li>"}</ul>
@@ -283,7 +287,7 @@ def generate_html_report(ctx: PipelineContext) -> str:
 </body>
 </html>
 """
-    Path(html_path).write_text(html, encoding="utf-8")
+    Path(html_path).write_text(html_content, encoding="utf-8")
     return html_path
 
 
@@ -313,7 +317,7 @@ class ReportStep(PipelineStep):
         else:
             # Default: JSON
             json_str = generate_json_report(context)
-            timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+            timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
             path = str(Path(output_dir) / f"report_{timestamp}.json")
             Path(path).write_text(json_str, encoding="utf-8")
 

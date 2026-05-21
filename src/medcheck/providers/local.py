@@ -77,6 +77,11 @@ class LocalProvider(DataProvider):
     def _scan_zip(self, zip_path: Path) -> list[DicomSeries]:
         with tempfile.TemporaryDirectory() as tmp_dir:
             with zipfile.ZipFile(zip_path, "r") as zf:
+                for member in zf.namelist():
+                    member_path = Path(tmp_dir) / member
+                    # Resolve to catch ../ traversal
+                    if not str(member_path.resolve()).startswith(str(Path(tmp_dir).resolve())):
+                        raise ValueError(f"Unsafe path in ZIP: {member}")
                 zf.extractall(tmp_dir)
             return self._scan_directory(Path(tmp_dir))
 

@@ -16,6 +16,8 @@ app = typer.Typer(
 )
 console = Console()
 
+_DEFAULT_STEPS = ["ingest", "preprocess", "ml_analysis", "report"]
+
 
 def version_callback(value: bool) -> None:
     if value:
@@ -30,6 +32,54 @@ def main(
     ),
 ) -> None:
     pass
+
+
+def _build_registry():
+    """Create and populate a StepRegistry with all known pipeline steps."""
+    from medcheck.core.workflow import StepRegistry
+    from medcheck.pipeline.ingest import IngestStep
+    from medcheck.pipeline.ml_analysis import MLAnalysisStep
+    from medcheck.pipeline.preprocess import PreprocessStep
+    from medcheck.pipeline.report import ReportStep
+    from medcheck.pipeline.vision_analysis import VisionAnalysisStep
+
+    registry = StepRegistry()
+    registry.register("ingest", IngestStep)
+    registry.register("preprocess", PreprocessStep)
+    registry.register("ml_analysis", MLAnalysisStep)
+    registry.register("vision_analysis", VisionAnalysisStep)
+    registry.register("report", ReportStep)
+    return registry
+
+
+def _run_pipeline(ctx, workflow, steps):
+    """Run the pipeline and return the final context."""
+    from medcheck.core.workflow import WorkflowEngine
+
+    engine = WorkflowEngine(_build_registry())
+
+    if workflow:
+        console.print(f"Using workflow: {workflow}")
+        return engine.run_from_yaml(workflow, ctx)
+
+    if steps:
+        step_list = [s.strip() for s in steps.split(",")]
+        console.print(f"Steps: {step_list}")
+        return engine.run(steps=step_list, context=ctx)
+
+    console.print(f"Using default pipeline: {_DEFAULT_STEPS}")
+    return engine.run(steps=_DEFAULT_STEPS, context=ctx)
+
+
+def _print_summary(ctx) -> None:
+    """Print a summary of pipeline results."""
+    console.print("\n[bold green]Analysis complete.[/bold green]")
+    if ctx.report_path:
+        console.print(f"  Report: {ctx.report_path}")
+    if ctx.findings:
+        console.print(f"  Findings: {len(ctx.findings)} structure(s) evaluated")
+    if ctx.overall_impression:
+        console.print(f"  Impression: {ctx.overall_impression}")
 
 
 @app.command()
@@ -88,16 +138,6 @@ def analyze(
             if s or t:
                 ctx.clinical_context = ClinicalContext(symptoms=s, trauma=t)
 
-    # Determine pipeline steps
-    if workflow:
-        console.print(f"Using workflow: {workflow}")
-        # WorkflowEngine will handle YAML parsing
-    elif steps:
-        step_list = [s.strip() for s in steps.split(",")]
-        console.print(f"Steps: {step_list}")
-    else:
-        console.print("Using default pipeline")
-
     # Create output dir
     Path(output).mkdir(parents=True, exist_ok=True)
 
@@ -106,8 +146,8 @@ def analyze(
     console.print(f"  Language: {lang}")
     console.print(f"  Output: {output}")
 
-    # Note: Full pipeline execution will be wired up when all steps are integrated
-    console.print("[yellow]Pipeline execution coming in next release.[/yellow]")
+    ctx = _run_pipeline(ctx, workflow, steps)
+    _print_summary(ctx)
 
 
 @app.command()
@@ -116,9 +156,13 @@ def serve(
     port: int = typer.Option(8080, "--port", help="Bind port"),
 ) -> None:
     """Start the MedCheck web UI server."""
+    import uvicorn
+
+    from medcheck.web.app import create_app
+
     console.print(f"[bold blue]MedCheck v{__version__} - Web UI[/bold blue]")
     console.print(f"Starting server on http://{host}:{port}")
-    console.print("[yellow]Web UI coming in next release.[/yellow]")
+    uvicorn.run(create_app(), host=host, port=port)
 
 
 @app.command()

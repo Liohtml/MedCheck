@@ -63,7 +63,10 @@ class WorkflowEngine:
             step_class = self.registry.get(name)  # raises KeyError if unknown
             step_instance = step_class()
             console.print(f"[bold blue]▶ Running step:[/bold blue] {name}")
-            step_instance.validate(context)
+            if not step_instance.validate(context):
+                console.print(f"[yellow]Skipping {name}: prerequisites not met[/yellow]")
+                continue
+            context.step_config = step_configs.get(name, {})
             context = step_instance.run(context)
             console.print(f"[bold green]✔ Completed step:[/bold green] {name}")
 

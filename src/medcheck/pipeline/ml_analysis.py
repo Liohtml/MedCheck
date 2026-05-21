@@ -15,6 +15,20 @@ from medcheck.core.step import PipelineStep
 
 console = Console()
 
+_feature_extractor = None
+
+
+def _get_feature_extractor():
+    global _feature_extractor
+    if _feature_extractor is None:
+        import torch
+        from torchvision import models
+
+        model = models.resnet18(weights=models.ResNet18_Weights.IMAGENET1K_V1)
+        _feature_extractor = torch.nn.Sequential(*list(model.children())[:-1])
+        _feature_extractor.requires_grad_(False)
+    return _feature_extractor
+
 
 def compute_anomaly_scores(features: np.ndarray) -> np.ndarray:
     """Per-slice anomaly score = normalized distance from mean feature vector."""
@@ -48,11 +62,9 @@ def extract_features(volume: np.ndarray) -> np.ndarray:
     """Extract features per slice using ResNet18 or fallback to simple stats."""
     try:
         import torch
-        from torchvision import models, transforms
+        from torchvision import transforms
 
-        model = models.resnet18(weights=models.ResNet18_Weights.IMAGENET1K_V1)
-        feature_extractor = torch.nn.Sequential(*list(model.children())[:-1])
-        feature_extractor.requires_grad_(False)
+        feature_extractor = _get_feature_extractor()
 
         transform = transforms.Compose(
             [
