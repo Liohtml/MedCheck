@@ -35,8 +35,8 @@ class DicomSeries:
 
 @dataclass
 class SignalStats:
-    mean_intensity: float = 0.0
-    max_intensity: float = 0.0
+    mean_intensity: list[float] = field(default_factory=list)
+    max_intensity: list[float] = field(default_factory=list)
     high_signal_ratio: list[float] = field(default_factory=list)
     high_signal_slices: list[int] = field(default_factory=list)
 
@@ -66,6 +66,10 @@ class ClinicalContext:
 class PipelineContext:
     dicom_series: list[DicomSeries] = field(default_factory=list)
     patient: PatientInfo = field(default_factory=PatientInfo)
+    # Ingest config
+    source: str = ""
+    provider_name: str = "local"
+    credentials: dict[str, str] = field(default_factory=dict)
     study: StudyInfo = field(default_factory=StudyInfo)
     volumes: dict = field(default_factory=dict)
     detected_anatomy: str | None = None
@@ -80,3 +84,6 @@ class PipelineContext:
     clinical_correlation: str = ""
     limitations: list[str] = field(default_factory=list)
     report_path: str = ""
+    report_format: str = "json"
+    report_language: str = "en"
+    output_dir: str = ""
