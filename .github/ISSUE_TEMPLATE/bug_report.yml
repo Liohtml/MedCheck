@@ -1,0 +1,63 @@
+name: Bug Report
+description: Report a bug or unexpected behavior in MedCheck
+title: "[Bug]: "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to fill out this bug report! Please provide as much detail as possible.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: A clear and concise description of what the bug is.
+      placeholder: What happened? What did you expect to happen?
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce
+      description: Step-by-step instructions to reproduce the issue.
+      placeholder: |
+        1. Run `medcheck ...`
+        2. Provide input `...`
+        3. Observe error `...`
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: What version of MedCheck are you using? Run `medcheck --version` or check `pyproject.toml`.
+      placeholder: "e.g., 0.1.0"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: installation
+    attributes:
+      label: Installation Method
+      description: How did you install MedCheck?
+      options:
+        - pip install medcheck
+        - uv add medcheck
+        - uv sync (from source)
+        - poetry add medcheck
+        - Other (describe in logs section)
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant Logs / Stack Trace
+      description: Paste any error messages, stack traces, or log output here.
+      render: shell
+      placeholder: |
+        Traceback (most recent call last):
+          ...

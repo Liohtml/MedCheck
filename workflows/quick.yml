@@ -1,0 +1,8 @@
+name: quick
+description: ML-only pipeline — skips vision/LLM analysis for faster turnaround.
+
+steps:
+  - ingest:
+  - preprocess:
+  - ml_analysis:
+  - report:

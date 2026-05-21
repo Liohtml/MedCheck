@@ -1,0 +1,44 @@
+KNEE MRI ANALYSIS - Evaluate the following structures systematically:
+
+1. ANTERIOR CRUCIATE LIGAMENT (ACL):
+   - Fiber continuity from femoral origin to tibial insertion
+   - Signal intensity (should be low/dark on PD FS)
+   - Secondary signs: anterior tibial translation, PCL buckling, bone bruise pattern
+
+2. POSTERIOR CRUCIATE LIGAMENT (PCL):
+   - Continuity and signal
+   - Buckling angle (>105 degrees suggests ACL insufficiency)
+
+3. MEDIAL COLLATERAL LIGAMENT (MCL):
+   - Three portions: femoral attachment, mid-substance, tibial attachment
+   - Signal, continuity, thickness, periligamentous edema
+   - Grade: I (sprain), II (partial tear), III (complete tear)
+
+4. LATERAL COLLATERAL LIGAMENT (LCL):
+   - Continuity and signal
+   - Posterolateral corner assessment
+
+5. MEDIAL MENISCUS:
+   - Anterior horn, body, posterior horn, root
+   - Signal classification (Stoller): Grade I (intrameniscal, no surface), II (linear, no surface), III (surface-reaching = tear)
+   - Tear morphology if present: horizontal, vertical, radial, bucket-handle, flap
+
+6. LATERAL MENISCUS:
+   - Same assessment as medial
+
+7. ARTICULAR CARTILAGE:
+   - Medial/lateral femoral condyle, tibial plateau, patellofemoral
+   - Thickness, signal, surface regularity
+
+8. BONE:
+   - Bone marrow edema pattern (hyperintense on PD FS, hypointense on T1)
+   - Fractures, Segond fracture (lateral tibial avulsion)
+   - Bone bruise pattern: pivot-shift (lateral femoral condyle + posterolateral tibial plateau)
+
+9. EFFUSION:
+   - Suprapatellar recess, posterior recess
+   - Grade: none, mild, moderate, severe
+
+10. SOFT TISSUES:
+    - Hoffa fat pad, popliteal fossa, Baker cyst
+    - Quadriceps/patellar tendon

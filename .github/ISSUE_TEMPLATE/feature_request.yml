@@ -1,0 +1,64 @@
+name: Feature Request
+description: Suggest a new feature or enhancement for MedCheck
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for suggesting an improvement! Please describe your idea clearly so we can evaluate it.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem Statement
+      description: What problem does this feature solve? Is your request related to a specific frustration?
+      placeholder: "I'm always frustrated when... / I can't currently do..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed Solution
+      description: Describe the feature you'd like to see. Include any relevant API design ideas or examples.
+      placeholder: |
+        I would like MedCheck to support...
+
+        Example usage:
+        ```python
+        medcheck.add_provider(...)
+        ```
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      description: Which part of MedCheck does this feature relate to?
+      options:
+        - Data Provider (new source integration)
+        - LLM Provider (new model integration)
+        - Pipeline / Orchestration
+        - CLI / Interface
+        - Output / Formatting
+        - Configuration
+        - Documentation
+        - Testing / CI
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: Have you considered any workarounds or alternative approaches?
+      placeholder: I tried... but it doesn't work because...
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional Context
+      description: Any other context, screenshots, or references that might be helpful.

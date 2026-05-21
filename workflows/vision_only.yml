@@ -1,0 +1,8 @@
+name: vision_only
+description: LLM/vision-only pipeline — skips ML model inference, uses vision analysis exclusively.
+
+steps:
+  - ingest:
+  - preprocess:
+  - vision_analysis:
+  - report:

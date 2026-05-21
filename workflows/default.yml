@@ -1,0 +1,9 @@
+name: default
+description: Full MedCheck pipeline — ingest, preprocessing, ML analysis, vision analysis, and report generation.
+
+steps:
+  - ingest:
+  - preprocess:
+  - ml_analysis:
+  - vision_analysis:
+  - report:
