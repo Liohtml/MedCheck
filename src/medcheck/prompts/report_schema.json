@@ -1,0 +1,39 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": ["structures", "overall_impression", "limitations"],
+  "properties": {
+    "structures": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "status", "findings"],
+        "properties": {
+          "name": {"type": "string"},
+          "status": {"type": "string", "enum": ["intact", "partial_tear", "complete_tear", "degenerative", "not_assessable", "normal", "abnormal"]},
+          "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+          "findings": {"type": "string"},
+          "slices_evaluated": {"type": "array", "items": {"type": "string"}},
+          "secondary_signs": {"type": "array", "items": {"type": "string"}}
+        }
+      }
+    },
+    "effusion": {
+      "type": "object",
+      "properties": {
+        "grade": {"type": "string", "enum": ["none", "mild", "moderate", "severe"]},
+        "location": {"type": "string"}
+      }
+    },
+    "bone_bruise": {
+      "type": "object",
+      "properties": {
+        "present": {"type": "boolean"},
+        "locations": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "overall_impression": {"type": "string"},
+    "clinical_correlation": {"type": "string"},
+    "limitations": {"type": "array", "items": {"type": "string"}}
+  }
+}

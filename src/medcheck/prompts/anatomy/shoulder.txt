@@ -1,0 +1,9 @@
+SHOULDER MRI ANALYSIS - Evaluate systematically:
+
+1. ROTATOR CUFF: Supraspinatus, infraspinatus, subscapularis, teres minor
+   - Tendon integrity, signal, thickness, retraction if torn
+2. LABRUM: Superior (SLAP), anterior (Bankart), posterior
+3. BICEPS TENDON: Long head, anchor
+4. ACROMIOCLAVICULAR JOINT
+5. BONE: Humeral head, glenoid, Hill-Sachs/reverse Hill-Sachs
+6. EFFUSION AND BURSAE

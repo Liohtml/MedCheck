@@ -1,0 +1,11 @@
+services:
+  medcheck:
+    build:
+      context: .
+      target: lite
+    ports:
+      - "8080:8080"
+    env_file: .env
+    volumes:
+      - ./data:/data
+      - ./output:/output

@@ -1,0 +1,9 @@
+SPINE MRI ANALYSIS - Evaluate systematically:
+
+1. INTERVERTEBRAL DISCS: Height, signal, herniation (protrusion/extrusion/sequestration)
+2. SPINAL CANAL: Stenosis grade, cord compression
+3. NEURAL FORAMINA: Foraminal stenosis
+4. VERTEBRAL BODIES: Alignment, marrow signal, compression fractures
+5. FACET JOINTS: Arthropathy, hypertrophy
+6. LIGAMENTS: Anterior/posterior longitudinal, ligamentum flavum
+7. PARAVERTEBRAL SOFT TISSUES
