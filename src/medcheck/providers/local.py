@@ -3,7 +3,7 @@ from __future__ import annotations
 import tempfile
 import zipfile
 from pathlib import Path
-from typing import ClassVar
+from typing import Any, ClassVar
 
 import pydicom
 
@@ -36,7 +36,7 @@ class LocalProvider(DataProvider):
     # ------------------------------------------------------------------
 
     def _scan_directory(self, directory: Path) -> list[DicomSeries]:
-        series_map: dict[str, dict] = {}
+        series_map: dict[str, dict[str, Any]] = {}
 
         for file in directory.rglob("*"):
             if not file.is_file():
@@ -86,7 +86,7 @@ class LocalProvider(DataProvider):
             return self._scan_directory(Path(tmp_dir))
 
     @staticmethod
-    def _try_read(path: Path):
+    def _try_read(path: Path) -> Any:
         try:
             ds = pydicom.dcmread(str(path), force=True)
             if not hasattr(ds, "PixelData"):

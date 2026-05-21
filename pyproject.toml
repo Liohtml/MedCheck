@@ -51,6 +51,7 @@ dev = [
     "ruff>=0.8.0",
     "pre-commit>=4.0.0",
     "bandit>=1.8.0",
+    "types-PyYAML>=6.0",
 ]
 
 [project.scripts]
@@ -60,11 +61,8 @@ medcheck = "medcheck.main:app"
 packages = ["src/medcheck"]
 
 [tool.pytest.ini_options]
-strict-markers = true
 testpaths = ["tests"]
-tmp_path_retention_count = 3
-tmp_path_retention_policy = "failed"
-addopts = "--basetemp=D:/CodeENV/MedCheck/.pytest_tmp"
+addopts = "-rxXs"
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
     "network: marks tests that require network access",
@@ -95,5 +93,13 @@ module = [
     "reportlab.*",
     "torch.*",
     "torchvision.*",
+    "anthropic.*",
+    "openai.*",
+    "google.*",
+    "google.generativeai.*",
 ]
 ignore_missing_imports = true
+
+[tool.bandit]
+exclude_dirs = ["tests"]
+skips = ["B104"]
