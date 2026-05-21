@@ -5,10 +5,10 @@
 **AI-powered medical imaging analysis toolkit**
 
 [![CI](https://github.com/Liohtml/MedCheck/actions/workflows/ci.yml/badge.svg)](https://github.com/Liohtml/MedCheck/actions/workflows/ci.yml)
-[![codecov](https://codecov.io/gh/Liohtml/MedCheck/branch/main/graph/badge.svg)](https://codecov.io/gh/Liohtml/MedCheck)
-[![PyPI version](https://badge.fury.io/py/medcheck.svg)](https://badge.fury.io/py/medcheck)
-[![Python versions](https://img.shields.io/pypi/pyversions/medcheck.svg)](https://pypi.org/project/medcheck/)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+[![GitHub release](https://img.shields.io/github/v/release/Liohtml/MedCheck)](https://github.com/Liohtml/MedCheck/releases)
+[![GitHub stars](https://img.shields.io/github/stars/Liohtml/MedCheck)](https://github.com/Liohtml/MedCheck/stargazers)
 
 </div>
 
