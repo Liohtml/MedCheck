@@ -6,6 +6,8 @@ No API key required.
 
 from __future__ import annotations
 
+from typing import Any
+
 import numpy as np
 from PIL import Image
 from rich.console import Console
@@ -18,7 +20,7 @@ console = Console()
 _feature_extractor = None
 
 
-def _get_feature_extractor():
+def _get_feature_extractor() -> Any:
     global _feature_extractor
     if _feature_extractor is None:
         import torch
@@ -30,14 +32,16 @@ def _get_feature_extractor():
     return _feature_extractor
 
 
-def compute_anomaly_scores(features: np.ndarray) -> np.ndarray:
+def compute_anomaly_scores(features: np.ndarray[Any, np.dtype[Any]]) -> np.ndarray[Any, np.dtype[Any]]:
     """Per-slice anomaly score = normalized distance from mean feature vector."""
     mean_feat = features.mean(axis=0)
     distances = np.linalg.norm(features - mean_feat, axis=1)
     dmin, dmax = distances.min(), distances.max()
     if dmax - dmin > 0:
-        return (distances - dmin) / (dmax - dmin)
-    return np.zeros(len(distances), dtype=np.float32)
+        result: np.ndarray[Any, np.dtype[Any]] = (distances - dmin) / (dmax - dmin)
+        return result
+    zeros: np.ndarray[Any, np.dtype[Any]] = np.zeros(len(distances), dtype=np.float32)
+    return zeros
 
 
 def analyze_signal_intensity(volume: np.ndarray) -> SignalStats:
