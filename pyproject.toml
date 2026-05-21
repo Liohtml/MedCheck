@@ -1,0 +1,96 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "medcheck"
+version = "0.1.0"
+description = "AI-powered medical imaging analysis toolkit"
+readme = "README.md"
+license = { text = "Apache-2.0" }
+requires-python = ">=3.10"
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Healthcare Industry",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Medical Science Apps.",
+    "Topic :: Scientific/Engineering :: Image Recognition",
+]
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.32.0",
+    "typer>=0.15.0",
+    "pydicom>=3.0.0",
+    "numpy>=1.26.0",
+    "Pillow>=10.0.0",
+    "httpx>=0.28.0",
+    "pyyaml>=6.0",
+    "pydantic>=2.10.0",
+    "reportlab>=4.0",
+    "jinja2>=3.1.0",
+    "rich>=13.0.0",
+    "pycryptodome>=3.20.0",
+]
+
+[project.optional-dependencies]
+local-models = [
+    "torch>=2.5.0",
+    "torchvision>=0.20.0",
+]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=6.0",
+    "pytest-asyncio>=0.24.0",
+    "mypy>=1.13.0",
+    "ruff>=0.8.0",
+    "pre-commit>=4.0.0",
+    "bandit>=1.8.0",
+]
+
+[project.scripts]
+medcheck = "medcheck.main:app"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/medcheck"]
+
+[tool.pytest.ini_options]
+strict-markers = true
+testpaths = ["tests"]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "network: marks tests that require network access",
+    "dicom: marks tests that require DICOM files",
+]
+
+[tool.coverage.run]
+source = ["medcheck"]
+branch = true
+
+[tool.coverage.report]
+fail_under = 85
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "B", "I", "N", "PIE", "UP", "RUF", "C90"]
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+
+[[tool.mypy.overrides]]
+module = [
+    "pydicom.*",
+    "reportlab.*",
+    "torch.*",
+    "torchvision.*",
+]
+ignore_missing_imports = true
