@@ -81,7 +81,7 @@ uv run medcheck serve
 └─────────┘    └────────────┘    └────────────┘    └───────────┘    └────────┘
 ```
 
-1. **Ingest** — load studies from local paths, the easyRadiology API, or third-party plugins.
+1. **Ingest** — load studies from local paths, the easyRadiology portal, or third-party plugins.
 2. **Preprocess** — normalize pixel values, resize to model input dimensions, and strip PHI.
 3. **ML Analyze** — run local segmentation and anomaly-detection models (no API key required).
 4. **Vision AI** — send annotated slices to a frontier Vision-LLM for language-based findings.
