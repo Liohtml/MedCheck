@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MedCheck &ndash; AI Medical Imaging Analysis</title>
+  <script src="https://unpkg.com/htmx.org@1.9.12" defer></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #1a1a2e;
+      --card:      #16213e;
+      --accent:    #0f3460;
+      --highlight: #e94560;
+      --blue:      #4e8cff;
+      --text:      #e0e0f0;
+      --muted:     #8888aa;
+      --border:    #2a2a4a;
+      --radius:    12px;
+      --shadow:    0 4px 24px rgba(0,0,0,0.4);
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Header ─────────────────────────────────────────── */
+    header {
+      background: var(--card);
+      border-bottom: 1px solid var(--border);
+      padding: 1rem 2rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      box-shadow: var(--shadow);
+    }
+    .logo-text {
+      font-size: 1.6rem;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      color: #fff;
+    }
+    .logo-text span { color: var(--blue); }
+    .version-badge {
+      background: var(--accent);
+      color: var(--blue);
+      font-size: 0.7rem;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 20px;
+      letter-spacing: 0.5px;
+    }
+    .header-spacer { flex: 1; }
+    .header-tag {
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+
+    /* ── Main Layout ────────────────────────────────────── */
+    main {
+      flex: 1;
+      max-width: 900px;
+      width: 100%;
+      margin: 2.5rem auto;
+      padding: 0 1.5rem;
+    }
+
+    .page-subtitle {
+      color: var(--muted);
+      margin-bottom: 2rem;
+      font-size: 0.95rem;
+    }
+
+    /* ── Wizard Tabs ────────────────────────────────────── */
+    .wizard-tabs {
+      display: flex;
+      gap: 0;
+      margin-bottom: -1px;
+    }
+    .tab-btn {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-bottom: none;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 0.9rem;
+      font-weight: 600;
+      padding: 0.75rem 1.5rem;
+      border-radius: var(--radius) var(--radius) 0 0;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      position: relative;
+    }
+    .tab-btn .step-num {
+      background: var(--accent);
+      color: var(--blue);
+      border-radius: 50%;
+      width: 22px;
+      height: 22px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.75rem;
+      flex-shrink: 0;
+    }
+    .tab-btn.active {
+      background: var(--accent);
+      color: #fff;
+      border-color: var(--accent);
+    }
+    .tab-btn.active .step-num {
+      background: var(--blue);
+      color: #fff;
+    }
+    .tab-btn:hover:not(.active) {
+      color: var(--text);
+      background: #1e2d50;
+    }
+
+    /* ── Wizard Card ────────────────────────────────────── */
+    .wizard-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 0 var(--radius) var(--radius) var(--radius);
+      padding: 2rem;
+      box-shadow: var(--shadow);
+    }
+    .tab-pane { display: none; }
+    .tab-pane.active { display: block; }
+
+    /* ── Form Elements ──────────────────────────────────── */
+    .form-group {
+      margin-bottom: 1.4rem;
+    }
+    label {
+      display: block;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      margin-bottom: 0.45rem;
+    }
+    input[type="text"],
+    input[type="url"],
+    input[type="date"],
+    textarea,
+    select {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 0.95rem;
+      padding: 0.65rem 0.9rem;
+      transition: border-color 0.2s;
+      font-family: inherit;
+    }
+    input:focus, textarea:focus, select:focus {
+      outline: none;
+      border-color: var(--blue);
+      box-shadow: 0 0 0 3px rgba(78,140,255,0.15);
+    }
+    textarea { resize: vertical; min-height: 90px; }
+    select option { background: var(--card); }
+
+    .input-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+    }
+
+    /* ── Dropzone ───────────────────────────────────────── */
+    .dropzone {
+      border: 2px dashed var(--border);
+      border-radius: var(--radius);
+      padding: 2.5rem 1.5rem;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      background: rgba(15,52,96,0.2);
+    }
+    .dropzone:hover, .dropzone.dragover {
+      border-color: var(--blue);
+      background: rgba(78,140,255,0.08);
+    }
+    .dropzone-icon { font-size: 2.5rem; margin-bottom: 0.5rem; }
+    .dropzone-hint { color: var(--muted); font-size: 0.9rem; }
+    .dropzone-hint strong { color: var(--blue); }
+    .dropzone input[type="file"] { display: none; }
+
+    .or-divider {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin: 1.2rem 0;
+      color: var(--muted);
+      font-size: 0.8rem;
+    }
+    .or-divider::before, .or-divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    /* ── Auto-detect badge ──────────────────────────────── */
+    .auto-detect-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      background: rgba(78,140,255,0.12);
+      border: 1px solid rgba(78,140,255,0.3);
+      border-radius: 20px;
+      font-size: 0.75rem;
+      color: var(--blue);
+      padding: 3px 10px;
+      margin-top: 0.5rem;
+    }
+    .auto-detect-badge::before {
+      content: '';
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--blue);
+      animation: pulse 1.5s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    /* ── Checkbox group ─────────────────────────────────── */
+    .checkbox-group {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.6rem;
+    }
+    .checkbox-item {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: rgba(15,52,96,0.3);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.6rem 0.9rem;
+      cursor: pointer;
+      transition: border-color 0.15s;
+    }
+    .checkbox-item:hover { border-color: var(--blue); }
+    .checkbox-item input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+      accent-color: var(--blue);
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    .checkbox-item span { font-size: 0.875rem; }
+
+    /* ── Navigation buttons ─────────────────────────────── */
+    .wizard-nav {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 2rem;
+      padding-top: 1.5rem;
+      border-top: 1px solid var(--border);
+    }
+    .btn {
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 0.9rem;
+      font-weight: 600;
+      padding: 0.65rem 1.4rem;
+      transition: all 0.2s;
+    }
+    .btn-primary {
+      background: var(--blue);
+      color: #fff;
+    }
+    .btn-primary:hover { background: #3a7aff; transform: translateY(-1px); }
+    .btn-secondary {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--muted);
+    }
+    .btn-secondary:hover { border-color: var(--blue); color: var(--text); }
+    .btn-danger {
+      background: var(--highlight);
+      color: #fff;
+      padding: 0.75rem 2rem;
+      font-size: 1rem;
+    }
+    .btn-danger:hover { background: #ff2d50; transform: translateY(-1px); }
+    .btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none !important; }
+
+    /* ── Results area ───────────────────────────────────── */
+    .results-section {
+      margin-top: 2rem;
+    }
+    .results-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.5rem 2rem;
+      box-shadow: var(--shadow);
+    }
+    .results-card h3 {
+      font-size: 1rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      margin-bottom: 1.2rem;
+    }
+    .progress-bar-wrap {
+      background: var(--bg);
+      border-radius: 20px;
+      height: 10px;
+      overflow: hidden;
+      margin-bottom: 0.5rem;
+    }
+    .progress-bar-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, var(--blue), #a78bfa);
+      border-radius: 20px;
+      transition: width 0.5s ease;
+    }
+    .progress-label {
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-bottom: 1.5rem;
+    }
+    .download-links {
+      display: flex;
+      gap: 0.8rem;
+      flex-wrap: wrap;
+    }
+    .dl-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      background: var(--accent);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--muted);
+      font-size: 0.8rem;
+      padding: 0.5rem 1rem;
+      text-decoration: none;
+      cursor: not-allowed;
+      opacity: 0.5;
+    }
+
+    /* ── Footer ─────────────────────────────────────────── */
+    footer {
+      background: var(--card);
+      border-top: 1px solid var(--border);
+      padding: 1.2rem 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+    .disclaimer {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      background: rgba(233,69,96,0.1);
+      border: 1px solid rgba(233,69,96,0.25);
+      border-radius: 6px;
+      color: #f87171;
+      font-size: 0.78rem;
+      font-weight: 600;
+      padding: 4px 10px;
+    }
+    .footer-meta {
+      font-size: 0.8rem;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+    .footer-meta a {
+      color: var(--blue);
+      text-decoration: none;
+    }
+    .footer-meta a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+
+<!-- Header -->
+<header>
+  <div class="logo-text">Med<span>Check</span></div>
+  <span class="version-badge">v{{ version }}</span>
+  <div class="header-spacer"></div>
+  <span class="header-tag">AI Medical Imaging Analysis</span>
+</header>
+
+<!-- Main -->
+<main>
+  <p class="page-subtitle">Upload imaging data and run AI-assisted clinical analysis in three steps.</p>
+
+  <!-- Wizard tabs -->
+  <div class="wizard-tabs">
+    <button class="tab-btn active" onclick="showTab(1, this)">
+      <span class="step-num">1</span> Load Data
+    </button>
+    <button class="tab-btn" onclick="showTab(2, this)">
+      <span class="step-num">2</span> Clinical Context
+    </button>
+    <button class="tab-btn" onclick="showTab(3, this)">
+      <span class="step-num">3</span> Analyze
+    </button>
+  </div>
+
+  <form id="analyzeForm" action="/api/analyze" method="post" enctype="multipart/form-data">
+    <div class="wizard-card">
+
+      <!-- Step 1: Load Data -->
+      <div class="tab-pane active" id="pane-1">
+        <div class="form-group">
+          <label>Upload Imaging File</label>
+          <div class="dropzone" id="dropzone"
+               onclick="document.getElementById('fileInput').click()"
+               ondragover="event.preventDefault(); this.classList.add('dragover')"
+               ondragleave="this.classList.remove('dragover')"
+               ondrop="handleDrop(event)">
+            <div class="dropzone-icon">&#x1F9FB;</div>
+            <p class="dropzone-hint"><strong>Click to browse</strong> or drag &amp; drop</p>
+            <p class="dropzone-hint" id="dropzoneSubtext" style="margin-top:4px;">DICOM, NIfTI, PNG, JPEG, TIFF &mdash; up to 500 MB</p>
+            <input type="file" id="fileInput" name="file"
+                   accept=".dcm,.nii,.nii.gz,.png,.jpg,.jpeg,.tiff,.tif"
+                   onchange="fileSelected(this)" />
+          </div>
+          <div class="auto-detect-badge" id="autoDetectBadge" style="display:none;">
+            Auto-detect active &mdash; format will be identified automatically
+          </div>
+        </div>
+
+        <div class="or-divider">OR</div>
+
+        <div class="form-group">
+          <label>Remote URL</label>
+          <input type="url" name="source_url" placeholder="https://example.com/scan.dcm" />
+        </div>
+
+        <div class="input-row">
+          <div class="form-group">
+            <label>Patient Code / ID</label>
+            <input type="text" name="patient_code" placeholder="e.g. PT-20240001" />
+          </div>
+          <div class="form-group">
+            <label>Date of Birth</label>
+            <input type="date" name="dob" />
+          </div>
+        </div>
+
+        <div class="wizard-nav">
+          <span></span>
+          <button type="button" class="btn btn-primary"
+                  onclick="showTab(2, document.querySelectorAll('.tab-btn')[1])">
+            Next: Clinical Context &rarr;
+          </button>
+        </div>
+      </div>
+
+      <!-- Step 2: Clinical Context -->
+      <div class="tab-pane" id="pane-2">
+        <div class="form-group">
+          <label>Symptoms / Chief Complaint</label>
+          <textarea name="symptoms" rows="3"
+            placeholder="Describe the patient's presenting symptoms, e.g. persistent headache, vision changes..."></textarea>
+        </div>
+
+        <div class="input-row">
+          <div class="form-group">
+            <label>Trauma / Mechanism</label>
+            <input type="text" name="trauma" placeholder="e.g. Fall from height, MVA" />
+          </div>
+          <div class="form-group">
+            <label>Scan Date</label>
+            <input type="date" name="scan_date" />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Suspected Diagnosis</label>
+          <input type="text" name="suspected_dx"
+            placeholder="e.g. Pulmonary embolism, Glioblastoma multiforme" />
+        </div>
+
+        <div class="form-group">
+          <label>Anatomy / Region</label>
+          <select name="anatomy">
+            <option value="">-- Select region --</option>
+            <optgroup label="Head &amp; Spine">
+              <option value="brain">Brain</option>
+              <option value="spine_cervical">Spine &ndash; Cervical</option>
+              <option value="spine_thoracic">Spine &ndash; Thoracic</option>
+              <option value="spine_lumbar">Spine &ndash; Lumbar</option>
+            </optgroup>
+            <optgroup label="Chest">
+              <option value="chest">Chest / Thorax</option>
+              <option value="lungs">Lungs</option>
+              <option value="heart">Heart / Cardiac</option>
+            </optgroup>
+            <optgroup label="Abdomen &amp; Pelvis">
+              <option value="abdomen">Abdomen</option>
+              <option value="liver">Liver</option>
+              <option value="kidneys">Kidneys</option>
+              <option value="pelvis">Pelvis</option>
+            </optgroup>
+            <optgroup label="Musculoskeletal">
+              <option value="msk_upper">Upper Extremity</option>
+              <option value="msk_lower">Lower Extremity</option>
+              <option value="knee">Knee</option>
+              <option value="shoulder">Shoulder</option>
+            </optgroup>
+            <option value="other">Other / Whole Body</option>
+          </select>
+        </div>
+
+        <div class="wizard-nav">
+          <button type="button" class="btn btn-secondary"
+                  onclick="showTab(1, document.querySelectorAll('.tab-btn')[0])">
+            &larr; Back
+          </button>
+          <button type="button" class="btn btn-primary"
+                  onclick="showTab(3, document.querySelectorAll('.tab-btn')[2])">
+            Next: Analyze &rarr;
+          </button>
+        </div>
+      </div>
+
+      <!-- Step 3: Analyze -->
+      <div class="tab-pane" id="pane-3">
+        <div class="form-group">
+          <label>Analysis Modules</label>
+          <div class="checkbox-group">
+            <label class="checkbox-item">
+              <input type="checkbox" name="modules" value="ml_classification" checked />
+              <span>ML Classification</span>
+            </label>
+            <label class="checkbox-item">
+              <input type="checkbox" name="modules" value="vision_segmentation" checked />
+              <span>Vision Segmentation</span>
+            </label>
+            <label class="checkbox-item">
+              <input type="checkbox" name="modules" value="anomaly_detection" />
+              <span>Anomaly Detection</span>
+            </label>
+            <label class="checkbox-item">
+              <input type="checkbox" name="modules" value="measurement" />
+              <span>Auto Measurements</span>
+            </label>
+            <label class="checkbox-item">
+              <input type="checkbox" name="modules" value="comparison" />
+              <span>Prior Comparison</span>
+            </label>
+            <label class="checkbox-item">
+              <input type="checkbox" name="modules" value="report_gen" checked />
+              <span>Report Generation</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="input-row">
+          <div class="form-group">
+            <label>AI Model</label>
+            <select name="model">
+              <option value="claude-3-5-sonnet">Claude 3.5 Sonnet</option>
+              <option value="claude-3-opus">Claude 3 Opus</option>
+              <option value="gpt-4o">GPT-4o</option>
+              <option value="gpt-4-vision">GPT-4 Vision</option>
+              <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
+              <option value="gemini-flash">Gemini 2.0 Flash</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Report Language</label>
+            <select name="language">
+              <option value="en">English</option>
+              <option value="de">Deutsch</option>
+              <option value="fr">Fran&ccedil;ais</option>
+              <option value="es">Espa&ntilde;ol</option>
+              <option value="pt">Portugu&ecirc;s</option>
+              <option value="ja">&#x65E5;&#x672C;&#x8A9E;</option>
+              <option value="zh">&#x4E2D;&#x6587;</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Report Format</label>
+          <select name="report_format">
+            <option value="pdf">PDF (structured radiology report)</option>
+            <option value="json">JSON (structured data)</option>
+            <option value="html">HTML (interactive)</option>
+            <option value="txt">Plain text</option>
+          </select>
+        </div>
+
+        <div class="wizard-nav">
+          <button type="button" class="btn btn-secondary"
+                  onclick="showTab(2, document.querySelectorAll('.tab-btn')[1])">
+            &larr; Back
+          </button>
+          <button type="submit" class="btn btn-danger" id="startBtn"
+                  hx-post="/api/analyze" hx-target="#resultsContent"
+                  hx-indicator="#progressWrap">
+            &#9658; Start Analysis
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </form>
+
+  <!-- Results -->
+  <div class="results-section">
+    <div class="results-card">
+      <h3>Results</h3>
+
+      <div id="progressWrap">
+        <div class="progress-bar-wrap">
+          <div class="progress-bar-fill" id="progressFill"></div>
+        </div>
+        <p class="progress-label" id="progressLabel">Waiting for analysis to start&hellip;</p>
+      </div>
+
+      <div id="resultsContent" style="color: var(--muted); font-size:0.9rem; margin-bottom:1rem;">
+        No results yet. Configure the steps above and click Start Analysis.
+      </div>
+
+      <div class="download-links">
+        <a class="dl-btn" aria-disabled="true">&#8659; PDF Report</a>
+        <a class="dl-btn" aria-disabled="true">&#8659; JSON Data</a>
+        <a class="dl-btn" aria-disabled="true">&#8659; Annotated Images</a>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<!-- Footer -->
+<footer>
+  <span class="disclaimer">&#9888; Not a medical device &mdash; for research use only</span>
+  <div class="footer-meta">
+    <span>MedCheck v{{ version }}</span>
+    <a href="https://github.com/your-org/medcheck" target="_blank" rel="noopener noreferrer">GitHub &#8599;</a>
+  </div>
+</footer>
+
+<script>
+  // Tab switching
+  function showTab(n, btn) {
+    document.querySelectorAll('.tab-pane').forEach(function(p) {
+      p.classList.remove('active');
+    });
+    document.querySelectorAll('.tab-btn').forEach(function(b) {
+      b.classList.remove('active');
+    });
+    document.getElementById('pane-' + n).classList.add('active');
+    btn.classList.add('active');
+  }
+
+  // File dropzone - use textContent for safe DOM updates
+  function fileSelected(input) {
+    if (input.files && input.files[0]) {
+      var f = input.files[0];
+      var subtext = document.getElementById('dropzoneSubtext');
+      var sizeMB = (f.size / 1024 / 1024).toFixed(2);
+      subtext.textContent = f.name + ' (' + sizeMB + ' MB)';
+      document.getElementById('autoDetectBadge').style.display = 'inline-flex';
+    }
+  }
+
+  function handleDrop(e) {
+    e.preventDefault();
+    document.getElementById('dropzone').classList.remove('dragover');
+    var dt = e.dataTransfer;
+    if (dt && dt.files && dt.files[0]) {
+      document.getElementById('fileInput').files = dt.files;
+      fileSelected(document.getElementById('fileInput'));
+    }
+  }
+
+  // Progress simulation on form submit
+  document.getElementById('analyzeForm').addEventListener('submit', function() {
+    simulateProgress();
+  });
+
+  function simulateProgress() {
+    var fill = document.getElementById('progressFill');
+    var label = document.getElementById('progressLabel');
+    var steps = [
+      [10, 'Uploading data...'],
+      [30, 'Preprocessing imaging data...'],
+      [55, 'Running ML modules...'],
+      [75, 'Querying AI model...'],
+      [90, 'Generating report...'],
+      [100, 'Done!']
+    ];
+    var i = 0;
+    var tick = setInterval(function() {
+      if (i >= steps.length) { clearInterval(tick); return; }
+      fill.style.width = steps[i][0] + '%';
+      label.textContent = steps[i][1];
+      i++;
+    }, 800);
+  }
+</script>
+</body>
+</html>
