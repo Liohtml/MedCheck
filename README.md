@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="social_preview.png" alt="MedCheck - AI-powered medical imaging analysis" width="100%">
+
 # MedCheck
 
 **AI-powered medical imaging analysis toolkit**
