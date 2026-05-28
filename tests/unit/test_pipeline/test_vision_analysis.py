@@ -4,7 +4,11 @@ import numpy as np
 
 from medcheck.core.context import ClinicalContext, PipelineContext, StructureFinding
 from medcheck.llm.base import AnalysisResult
-from medcheck.pipeline.vision_analysis import VisionAnalysisStep, build_prompt
+from medcheck.pipeline.vision_analysis import (
+    VisionAnalysisStep,
+    build_prompt,
+    load_anatomy_instructions,
+)
 
 
 def test_build_prompt_with_clinical_context():
@@ -23,6 +27,34 @@ def test_build_prompt_without_context():
     prompt = build_prompt(None, "knee")
     assert "knee" in prompt.lower()
     assert "No clinical context" in prompt or "clinical" in prompt.lower()
+
+
+def test_load_anatomy_instructions_uses_template_file():
+    # knee.txt ships with a detailed checklist that the dict hint does not contain.
+    instructions = load_anatomy_instructions("knee")
+    assert "ANTERIOR CRUCIATE LIGAMENT" in instructions
+
+
+def test_load_anatomy_instructions_falls_back_to_hint():
+    # "brain" has a built-in hint but no template file.
+    instructions = load_anatomy_instructions("brain")
+    assert "diffusion restriction" in instructions
+
+
+def test_load_anatomy_instructions_generic_fallback():
+    instructions = load_anatomy_instructions("elbow")
+    assert "elbow" in instructions.lower()
+
+
+def test_load_anatomy_instructions_abdomen_hint():
+    instructions = load_anatomy_instructions("abdomen")
+    assert "liver" in instructions.lower()
+
+
+def test_build_prompt_includes_detailed_template():
+    prompt = build_prompt(None, "knee")
+    # Detailed template content (not just the short dict hint) must reach the prompt.
+    assert "MEDIAL MENISCUS" in prompt
 
 
 def test_vision_step_name():

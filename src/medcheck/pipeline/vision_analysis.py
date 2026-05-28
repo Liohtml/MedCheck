@@ -7,6 +7,8 @@ and delegates to the best available LLM provider for structured analysis.
 from __future__ import annotations
 
 import io
+from functools import cache
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -49,7 +51,44 @@ _ANATOMY_HINTS: dict[str, str] = {
         "Focus on: signal abnormalities (T2/FLAIR hyperintensity); diffusion restriction; "
         "mass effect; midline shift; herniation; vascular territories; white/grey matter differentiation."
     ),
+    "abdomen": (
+        "Focus on: liver (focal lesions, diffuse signal); biliary tree; pancreas; spleen; kidneys "
+        "(masses, hydronephrosis); adrenal glands; bowel; lymphadenopathy; free fluid/ascites."
+    ),
 }
+
+# Directory containing detailed, hand-authored anatomy prompt templates.
+_ANATOMY_TEMPLATE_DIR = Path(__file__).resolve().parents[1] / "prompts" / "anatomy"
+
+
+@cache
+def load_anatomy_instructions(anatomy: str) -> str:
+    """Return anatomy-specific instructions for *anatomy*.
+
+    Resolution order:
+    1. A detailed template file ``prompts/anatomy/<anatomy>.txt`` if it exists.
+    2. The short built-in ``_ANATOMY_HINTS`` entry.
+    3. A generic catch-all instruction.
+
+    Results are cached so template files are read from disk at most once per region.
+    """
+    region = (anatomy or "").strip().lower()
+
+    template_file = _ANATOMY_TEMPLATE_DIR / f"{region}.txt"
+    try:
+        if template_file.is_file():
+            content = template_file.read_text(encoding="utf-8").strip()
+            if content:
+                return content
+    except OSError:
+        # Fall through to the in-memory hints on any read error.
+        pass
+
+    if region in _ANATOMY_HINTS:
+        return _ANATOMY_HINTS[region]
+
+    label = region or "musculoskeletal region"
+    return f"Thoroughly evaluate all visible structures in the {label}."
 
 _JSON_SCHEMA = """
 {
@@ -86,9 +125,7 @@ def build_prompt(clinical_context: ClinicalContext | None, anatomy: str | None) 
         Fully-formed prompt for the LLM vision model.
     """
     anatomy_label = (anatomy or "musculoskeletal region").lower()
-    anatomy_hint = _ANATOMY_HINTS.get(
-        anatomy_label, f"Thoroughly evaluate all visible structures in the {anatomy_label}."
-    )
+    anatomy_hint = load_anatomy_instructions(anatomy_label)
 
     lines: list[str] = [
         "You are an expert radiologist and medical imaging analyst specialising in MRI interpretation.",

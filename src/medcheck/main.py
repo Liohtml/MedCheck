@@ -167,6 +167,60 @@ def serve(
 
 
 @app.command()
+def providers() -> None:
+    """List registered data providers and how they are matched."""
+    from rich.table import Table
+
+    from medcheck.providers.easyradiology import EasyRadiologyProvider
+    from medcheck.providers.local import LocalProvider
+    from medcheck.providers.registry import ProviderRegistry
+
+    registry = ProviderRegistry()
+    registry.register(LocalProvider)
+    registry.register(EasyRadiologyProvider)
+
+    table = Table(title="Data Providers")
+    table.add_column("Name", style="bold cyan")
+    table.add_column("Matches")
+    for name in registry.list_providers():
+        cls = type(registry.get(name))
+        patterns = ", ".join(cls.url_patterns) if cls.url_patterns else "local files / folders / ZIP"
+        table.add_row(name, patterns)
+    console.print(table)
+
+
+@app.command()
+def models() -> None:
+    """List LLM providers, their default models, and current availability."""
+    from rich.table import Table
+
+    from medcheck.llm.claude import ClaudeProvider
+    from medcheck.llm.gemini import GeminiProvider
+    from medcheck.llm.openai_provider import OpenAIProvider
+
+    providers_list = [ClaudeProvider(), OpenAIProvider(), GeminiProvider()]
+
+    table = Table(title="LLM Providers")
+    table.add_column("Name", style="bold cyan")
+    table.add_column("Default Model")
+    table.add_column("Vision")
+    table.add_column("Available")
+    for provider in providers_list:
+        available = provider.check_available()
+        table.add_row(
+            provider.name,
+            getattr(provider, "model", "—"),
+            "yes" if provider.supports_vision else "no",
+            "[green]yes[/green]" if available else "[red]no[/red]",
+        )
+    console.print(table)
+    console.print(
+        "\n[dim]Availability is derived from configured API keys "
+        "(ANTHROPIC_API_KEY, OPENAI_API_KEY, GOOGLE_API_KEY).[/dim]"
+    )
+
+
+@app.command()
 def download_models() -> None:
     """Download pretrained ML models for local analysis."""
     console.print("[bold blue]MedCheck - Model Download[/bold blue]")
