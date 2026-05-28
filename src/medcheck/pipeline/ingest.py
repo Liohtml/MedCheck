@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+
 from rich.console import Console
 
 from medcheck.core.context import PatientInfo, PipelineContext, StudyInfo
@@ -55,8 +57,12 @@ class IngestStep(PipelineStep):
                 model_name=str(getattr(first_slice, "ManufacturerModelName", "") or ""),
                 field_strength=str(getattr(first_slice, "MagneticFieldStrength", "") or ""),
             )
+            # Avoid printing raw PHI (patient name) to stdout/logs; use a short,
+            # non-reversible hash of the patient ID as a pseudonymous identifier.
+            pid = context.patient.patient_id or context.patient.name
+            safe_id = hashlib.sha256(pid.encode("utf-8")).hexdigest()[:8] if pid else "unknown"
             _console.print(
-                f"[bold cyan]IngestStep[/] Patient: [yellow]{context.patient.name}[/] | "
+                f"[bold cyan]IngestStep[/] Patient: [yellow]#{safe_id}[/] | "
                 f"Study: [yellow]{context.study.description}[/]"
             )
 

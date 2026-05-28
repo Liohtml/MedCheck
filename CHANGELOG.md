@@ -21,6 +21,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Optional `MEDCHECK_API_KEY` API-key auth for `/api` endpoints (`X-API-Key` header)
 - `LocalLLMProvider` stub so the advertised offline `local` provider degrades
   gracefully instead of crashing the pipeline (full LLaVA-Med tracked in #18)
+- Consent gate for external LLM transmission: `--allow-cloud-llm` flag,
+  `MEDCHECK_ALLOW_EXTERNAL_LLM` env var, and an interactive confirmation prompt
+- Pydantic request schema (`AnalyzeRequest`) with validation for `POST /api/analyze`
 
 ### Changed
 - Vision analysis now loads detailed anatomy templates from `prompts/anatomy/*.txt`
@@ -44,5 +47,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   redirects disabled) to prevent SSRF via a tampered portal response
 - Default localhost binding and optional API key reduce unauthenticated exposure
   of patient imaging endpoints
+- Patient-derived data is no longer sent to external cloud LLM APIs without
+  explicit consent (HIPAA/GDPR)
+- Patient names are no longer logged to stdout; a non-reversible hash of the
+  patient ID is logged instead
+- Portal access codes are no longer echoed into `ValueError` messages
 
 [Unreleased]: https://github.com/Liohtml/MedCheck/compare/HEAD...HEAD

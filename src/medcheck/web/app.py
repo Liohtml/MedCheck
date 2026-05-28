@@ -11,6 +11,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.security import APIKeyHeader
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from pydantic import BaseModel, Field
 
 from medcheck import __version__
 from medcheck.core.config import Settings
@@ -19,6 +20,16 @@ TEMPLATES_DIR = Path(__file__).parent / "templates"
 STATIC_DIR = Path(__file__).parent / "static"
 
 _api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
+
+
+class AnalyzeRequest(BaseModel):
+    """Validated request body for POST /api/analyze."""
+
+    source: str = Field(..., min_length=1, description="DICOM folder/ZIP path or portal URL")
+    provider: str | None = Field(default=None, description="Data provider name (auto-detected if omitted)")
+    anatomy: str | None = Field(default=None, description="Anatomy region hint, e.g. 'knee'")
+    report_format: str = Field(default="json", pattern="^(json|pdf|html)$")
+    language: str = Field(default="en", pattern="^(en|de)$")
 
 
 def _make_api_key_guard(expected_key: str | None) -> Any:
@@ -61,7 +72,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         return templates.TemplateResponse(request, "index.html", {"version": __version__})
 
     @app.post("/api/analyze")
-    def analyze(_: None = Depends(require_api_key)) -> dict[str, Any]:
-        return {"status": "not_implemented"}
+    def analyze(req: AnalyzeRequest, _: None = Depends(require_api_key)) -> dict[str, Any]:
+        # Pipeline execution is not wired up yet; the validated request is echoed
+        # back so clients can confirm parsing/auth before the feature lands.
+        return {"status": "not_implemented", "source": req.source}
 
     return app

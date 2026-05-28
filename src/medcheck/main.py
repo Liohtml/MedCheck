@@ -100,8 +100,14 @@ def analyze(
     lang: str = typer.Option("en", "--lang", "-l", help="Report language: en, de"),
     output: str = typer.Option("./output", "--output", "-o", help="Output directory"),
     interactive: bool = typer.Option(False, "--interactive", "-i", help="Interactive mode"),
+    allow_cloud_llm: bool = typer.Option(
+        False,
+        "--allow-cloud-llm",
+        help="Consent to sending patient-derived data to external cloud LLM APIs",
+    ),
 ) -> None:
     """Analyze medical images from DICOM files or radiology portals."""
+    from medcheck.core.config import Settings
     from medcheck.core.context import ClinicalContext, PipelineContext
 
     console.print(f"[bold blue]MedCheck v{__version__}[/bold blue]")
@@ -119,6 +125,8 @@ def analyze(
     ctx.report_format = report
     ctx.report_language = lang
     ctx.output_dir = output
+    # Consent to external LLM transmission via flag or MEDCHECK_ALLOW_EXTERNAL_LLM env.
+    ctx.allow_external_llm = allow_cloud_llm or Settings().allow_external_llm
 
     # Clinical context
     if symptoms or trauma or diagnosis:
@@ -138,6 +146,11 @@ def analyze(
             t = typer.prompt("Trauma history (or press Enter to skip)", default="")
             if s or t:
                 ctx.clinical_context = ClinicalContext(symptoms=s, trauma=t)
+        if not ctx.allow_external_llm:
+            ctx.allow_external_llm = typer.confirm(
+                "Send patient-derived data to an external cloud LLM API (Claude/GPT/Gemini)?",
+                default=False,
+            )
 
     # Create output dir
     Path(output).mkdir(parents=True, exist_ok=True)

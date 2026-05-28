@@ -58,6 +58,9 @@ _ANATOMY_HINTS: dict[str, str] = {
     ),
 }
 
+# Providers that run on-device and therefore need no external-transmission consent.
+_LOCAL_PROVIDERS = frozenset({"local"})
+
 # Directory containing detailed, hand-authored anatomy prompt templates.
 _ANATOMY_TEMPLATE_DIR = Path(__file__).resolve().parents[1] / "prompts" / "anatomy"
 
@@ -249,6 +252,17 @@ class VisionAnalysisStep(PipelineStep):
         # Route to best available LLM provider
         router = self._get_router()
         provider = router.select(preferred="claude")
+
+        # Consent gate: cloud providers receive patient-derived images/context, so
+        # require explicit opt-in before any external transmission (HIPAA/GDPR).
+        if provider.name not in _LOCAL_PROVIDERS and not context.allow_external_llm:
+            raise PermissionError(
+                f"Vision analysis would send patient-derived data to the external '{provider.name}' "
+                "API, but external transmission has not been consented to. Re-run with "
+                "`--allow-cloud-llm` (CLI), set MEDCHECK_ALLOW_EXTERNAL_LLM=1, or use the offline "
+                "'local' provider. See SECURITY.md for details."
+            )
+
         result = provider.analyze_images(images, prompt, context.clinical_context)
 
         # Populate context from result

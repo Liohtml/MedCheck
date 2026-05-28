@@ -5,6 +5,12 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass, field
 
+_TRUTHY = {"1", "true", "yes", "on"}
+
+
+def _env_flag(name: str) -> bool:
+    return os.environ.get(name, "").strip().lower() in _TRUTHY
+
 
 @dataclass
 class Settings:
@@ -13,6 +19,9 @@ class Settings:
     host: str = field(default_factory=lambda: os.environ.get("MEDCHECK_HOST", "127.0.0.1"))
     port: int = field(default_factory=lambda: int(os.environ.get("MEDCHECK_PORT", "8080")))
     api_key: str | None = field(default_factory=lambda: os.environ.get("MEDCHECK_API_KEY"))
+    # Consent gate: patient-derived data is only sent to external cloud LLM APIs
+    # when this is explicitly enabled (MEDCHECK_ALLOW_EXTERNAL_LLM=1).
+    allow_external_llm: bool = field(default_factory=lambda: _env_flag("MEDCHECK_ALLOW_EXTERNAL_LLM"))
     default_llm_provider: str = field(default_factory=lambda: os.environ.get("MEDCHECK_LLM_PROVIDER", "claude"))
     default_language: str = field(default_factory=lambda: os.environ.get("MEDCHECK_LANGUAGE", "en"))
     anthropic_api_key: str | None = field(default_factory=lambda: os.environ.get("ANTHROPIC_API_KEY"))

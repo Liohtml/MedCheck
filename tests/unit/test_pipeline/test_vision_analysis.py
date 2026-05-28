@@ -1,6 +1,7 @@
 from unittest.mock import MagicMock, patch
 
 import numpy as np
+import pytest
 
 from medcheck.core.context import ClinicalContext, PipelineContext, StructureFinding
 from medcheck.llm.base import AnalysisResult
@@ -86,6 +87,7 @@ def test_vision_step_populates_findings():
     ctx.volumes = {"test_sag": np.random.rand(5, 64, 64).astype(np.float32)}
     ctx.top_slices = {"test_sag": [2, 3, 1]}
     ctx.detected_anatomy = "knee"
+    ctx.allow_external_llm = True  # consent to the cloud provider
 
     mock_result = AnalysisResult(
         structures=[StructureFinding(name="ACL", status="intact", confidence=0.9, findings="Normal")],
@@ -109,3 +111,42 @@ def test_vision_step_populates_findings():
     assert len(result.findings) == 1
     assert result.findings[0].name == "ACL"
     assert result.overall_impression == "Normal knee"
+
+
+def _consent_test_context():
+    ctx = PipelineContext()
+    ctx.volumes = {"s": np.random.rand(3, 32, 32).astype(np.float32)}
+    ctx.top_slices = {"s": [0, 1]}
+    ctx.detected_anatomy = "knee"
+    return ctx
+
+
+def test_vision_step_blocks_cloud_without_consent():
+    ctx = _consent_test_context()  # allow_external_llm defaults to False
+
+    cloud_provider = MagicMock()
+    cloud_provider.name = "claude"
+    mock_router = MagicMock()
+    mock_router.select.return_value = cloud_provider
+
+    step = VisionAnalysisStep()
+    with patch.object(step, "_get_router", return_value=mock_router):
+        with pytest.raises(PermissionError, match="external"):
+            step.run(ctx)
+    cloud_provider.analyze_images.assert_not_called()
+
+
+def test_vision_step_allows_local_without_consent():
+    ctx = _consent_test_context()  # no consent, but provider is local
+
+    local_provider = MagicMock()
+    local_provider.name = "local"
+    local_provider.analyze_images.return_value = AnalysisResult(overall_impression="ok", raw_response="{}")
+    mock_router = MagicMock()
+    mock_router.select.return_value = local_provider
+
+    step = VisionAnalysisStep()
+    with patch.object(step, "_get_router", return_value=mock_router):
+        result = step.run(ctx)
+    assert result.overall_impression == "ok"
+    local_provider.analyze_images.assert_called_once()
