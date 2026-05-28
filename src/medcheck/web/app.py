@@ -2,22 +2,50 @@
 
 from __future__ import annotations
 
+import hmac
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, Request
+from fastapi import Depends, FastAPI, HTTPException, Request, status
 from fastapi.responses import HTMLResponse
+from fastapi.security import APIKeyHeader
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from medcheck import __version__
+from medcheck.core.config import Settings
 
 TEMPLATES_DIR = Path(__file__).parent / "templates"
 STATIC_DIR = Path(__file__).parent / "static"
 
+_api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
 
-def create_app() -> FastAPI:
+
+def _make_api_key_guard(expected_key: str | None) -> Any:
+    """Build a dependency that enforces the X-API-Key header when configured.
+
+    When ``MEDCHECK_API_KEY`` is unset the guard is a no-op (preserves the
+    out-of-the-box localhost experience). When set, requests to protected
+    endpoints must present a matching key.
+    """
+
+    def guard(provided: str | None = Depends(_api_key_header)) -> None:
+        if not expected_key:
+            return
+        # Constant-time comparison to avoid leaking the key via timing.
+        if not provided or not hmac.compare_digest(provided, expected_key):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid or missing API key (set the X-API-Key header).",
+            )
+
+    return guard
+
+
+def create_app(settings: Settings | None = None) -> FastAPI:
+    settings = settings or Settings()
     app = FastAPI(title="MedCheck", version=__version__)
+    require_api_key = _make_api_key_guard(settings.api_key)
 
     if STATIC_DIR.exists():
         app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
@@ -33,7 +61,7 @@ def create_app() -> FastAPI:
         return templates.TemplateResponse(request, "index.html", {"version": __version__})
 
     @app.post("/api/analyze")
-    def analyze() -> dict[str, Any]:
+    def analyze(_: None = Depends(require_api_key)) -> dict[str, Any]:
         return {"status": "not_implemented"}
 
     return app

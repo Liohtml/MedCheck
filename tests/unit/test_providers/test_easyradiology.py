@@ -1,6 +1,11 @@
 import pytest
 
-from medcheck.providers.easyradiology import EasyRadiologyProvider, _scrypt_derive, parse_access_code
+from medcheck.providers.easyradiology import (
+    EasyRadiologyProvider,
+    _scrypt_derive,
+    _validate_download_url,
+    parse_access_code,
+)
 
 
 def test_parse_access_code_four_segments():
@@ -55,3 +60,32 @@ def test_authenticate_requires_code_and_dob():
     assert p.authenticate({"code": "ABC", "dob": "01.01.2000"}) is True
     assert p.authenticate({"code": "ABC"}) is False
     assert p.authenticate({}) is False
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://portal.easyradiology.net/download/exam.zip",
+        "https://cdn.easyradiology.de/files/exam.zip",
+        "https://easyradiology.net/exam.zip",
+    ],
+)
+def test_validate_download_url_accepts_trusted_https(url):
+    # Should not raise.
+    _validate_download_url(url)
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "http://portal.easyradiology.net/exam.zip",  # not https
+        "https://evil.example.com/exam.zip",  # untrusted host
+        "https://127.0.0.1/exam.zip",  # loopback (SSRF)
+        "https://169.254.169.254/latest/meta-data/",  # cloud metadata (SSRF)
+        "https://easyradiology.net.evil.com/exam.zip",  # suffix-spoof attempt
+        "file:///etc/passwd",  # non-http scheme
+    ],
+)
+def test_validate_download_url_rejects_untrusted(url):
+    with pytest.raises(ValueError):
+        _validate_download_url(url)

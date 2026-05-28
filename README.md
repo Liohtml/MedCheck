@@ -96,7 +96,7 @@ uv run medcheck serve
 | **Claude Opus 4.7** | Anthropic | Highest diagnostic quality and reasoning depth |
 | **GPT-5.5** | OpenAI | High-resolution image understanding |
 | **Gemini 3.5 Flash** | Google | Speed-optimized, cost-effective batch processing |
-| **LLaVA-Med** | Local | Fully offline, no API key required |
+| **LLaVA-Med** | Local | Fully offline, no API key required *(coming soon — [#18](https://github.com/Liohtml/MedCheck/issues/18))* |
 
 ---
 
@@ -125,10 +125,16 @@ OPENAI_API_KEY=           # https://platform.openai.com/api-keys
 GOOGLE_API_KEY=           # https://aistudio.google.com/apikey
 
 # Defaults
-MEDCHECK_LLM_PROVIDER=claude   # claude | openai | gemini | local
+MEDCHECK_LLM_PROVIDER=claude   # claude | openai | gemini
 MEDCHECK_LANGUAGE=en           # en | de
+MEDCHECK_HOST=127.0.0.1        # localhost only; set 0.0.0.0 to expose on the network
 MEDCHECK_PORT=8080
+MEDCHECK_API_KEY=              # when set, /api requires an X-API-Key header
 ```
+
+> **Security:** The server binds to `127.0.0.1` by default. If you expose it on
+> the network (`MEDCHECK_HOST=0.0.0.0`), set `MEDCHECK_API_KEY` so the `/api`
+> endpoints require an `X-API-Key` header — this app handles patient PHI.
 
 > **Note:** easyRadiology requires no API key. Authentication uses the access code + date of birth provided by your radiology clinic (via SMS, email, or letter).
 

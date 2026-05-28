@@ -32,6 +32,23 @@ def parse_access_code(code: str) -> tuple[str, str]:
     return "-".join(segments[:2]), "-".join(segments[2:])
 
 
+# Hosts the encrypted exam ZIP (linkToERI) is allowed to be downloaded from.
+# Restricting this prevents SSRF if a spoofed/MITM portal response points the
+# download at localhost, RFC 1918 ranges, or cloud metadata endpoints.
+_ALLOWED_DOWNLOAD_SUFFIXES = (".easyradiology.net", ".easyradiology.de")
+_ALLOWED_DOWNLOAD_HOSTS = {"easyradiology.net", "easyradiology.de"}
+
+
+def _validate_download_url(url: str) -> None:
+    """Reject download URLs that are not HTTPS on a trusted easyRadiology host."""
+    parsed = urlparse(url)
+    if parsed.scheme != "https":
+        raise ValueError(f"Unsafe download URL scheme: {parsed.scheme!r} (expected https)")
+    host = (parsed.hostname or "").lower()
+    if host not in _ALLOWED_DOWNLOAD_HOSTS and not host.endswith(_ALLOWED_DOWNLOAD_SUFFIXES):
+        raise ValueError(f"Untrusted download host: {host!r}")
+
+
 def _scrypt_derive(password: str, salt: bytes, n: int = 16384, r: int = 8, p: int = 1, dklen: int = 32) -> bytes:
     return hashlib.scrypt(password.encode("utf-8"), salt=salt, n=n, r=r, p=p, dklen=dklen)
 
@@ -104,9 +121,12 @@ class EasyRadiologyProvider(DataProvider):
         return result
 
     def _download_and_decrypt(self, zip_url: str, access_key: str, exam_hash: str) -> list[DicomSeries]:
+        # Validate before fetching to guard against SSRF via a tampered linkToERI.
+        _validate_download_url(zip_url)
         with tempfile.TemporaryDirectory() as tmpdir:
             zip_path = Path(tmpdir) / "exam.zip"
-            with httpx.Client(timeout=120.0, follow_redirects=True) as client:
+            # Redirects are disabled: a 30x bounce could escape the host allowlist.
+            with httpx.Client(timeout=120.0, follow_redirects=False) as client:
                 with client.stream("GET", zip_url) as resp:
                     resp.raise_for_status()
                     with open(zip_path, "wb") as f:

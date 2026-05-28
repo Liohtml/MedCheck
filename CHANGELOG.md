@@ -18,10 +18,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `medcheck providers` command to list registered data providers
 - `medcheck models` command to list LLM providers, default models, and availability
 - `abdomen` anatomy hint for vision analysis prompts
+- Optional `MEDCHECK_API_KEY` API-key auth for `/api` endpoints (`X-API-Key` header)
+- `LocalLLMProvider` stub so the advertised offline `local` provider degrades
+  gracefully instead of crashing the pipeline (full LLaVA-Med tracked in #18)
 
 ### Changed
 - Vision analysis now loads detailed anatomy templates from `prompts/anatomy/*.txt`
   (knee/shoulder/spine), falling back to built-in hints when no template exists
+- Web server now binds to `127.0.0.1` by default instead of `0.0.0.0`; expose on
+  the network only via an explicit `MEDCHECK_HOST=0.0.0.0`
 
 ### Deprecated
 
@@ -31,7 +36,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Vision prompts now use the detailed anatomy templates that were previously
   shipped but never loaded
 - README "Report Bug" link now points to the correct `bug_report.yml` template
+- Offline mode no longer raises `RuntimeError: No LLM provider available`; the
+  `local` fallback is now a registered (unavailable) provider
 
 ### Security
+- Validate the easyRadiology `linkToERI` download URL (HTTPS + host allowlist,
+  redirects disabled) to prevent SSRF via a tampered portal response
+- Default localhost binding and optional API key reduce unauthenticated exposure
+  of patient imaging endpoints
 
 [Unreleased]: https://github.com/Liohtml/MedCheck/compare/HEAD...HEAD
