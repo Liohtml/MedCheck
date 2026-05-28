@@ -51,6 +51,13 @@ def test_load_anatomy_instructions_abdomen_hint():
     assert "liver" in instructions.lower()
 
 
+def test_load_anatomy_instructions_rejects_path_traversal():
+    # A traversal attempt must not read files outside the template dir; it
+    # falls through to the generic instruction instead.
+    instructions = load_anatomy_instructions("../../../etc/passwd")
+    assert "Thoroughly evaluate" in instructions
+
+
 def test_build_prompt_includes_detailed_template():
     prompt = build_prompt(None, "knee")
     # Detailed template content (not just the short dict hint) must reach the prompt.

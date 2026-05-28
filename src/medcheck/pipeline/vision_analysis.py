@@ -7,6 +7,7 @@ and delegates to the best available LLM provider for structured analysis.
 from __future__ import annotations
 
 import io
+import re
 from functools import cache
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -60,6 +61,10 @@ _ANATOMY_HINTS: dict[str, str] = {
 # Directory containing detailed, hand-authored anatomy prompt templates.
 _ANATOMY_TEMPLATE_DIR = Path(__file__).resolve().parents[1] / "prompts" / "anatomy"
 
+# Anatomy regions are restricted to a strict slug so they can never escape
+# _ANATOMY_TEMPLATE_DIR via path traversal (e.g. "../../secrets").
+_SLUG_RE = re.compile(r"[a-z0-9_-]+")
+
 
 @cache
 def load_anatomy_instructions(anatomy: str) -> str:
@@ -71,24 +76,29 @@ def load_anatomy_instructions(anatomy: str) -> str:
     3. A generic catch-all instruction.
 
     Results are cached so template files are read from disk at most once per region.
+    The region is slug-validated before being used in a filesystem path to guard
+    against path traversal.
     """
     region = (anatomy or "").strip().lower()
 
-    template_file = _ANATOMY_TEMPLATE_DIR / f"{region}.txt"
-    try:
-        if template_file.is_file():
-            content = template_file.read_text(encoding="utf-8").strip()
-            if content:
-                return content
-    except OSError:
-        # Fall through to the in-memory hints on any read error.
-        pass
+    # Only touch the filesystem for safe, slug-shaped region names.
+    if _SLUG_RE.fullmatch(region):
+        template_file = _ANATOMY_TEMPLATE_DIR / f"{region}.txt"
+        try:
+            if template_file.is_file():
+                content = template_file.read_text(encoding="utf-8").strip()
+                if content:
+                    return content
+        except OSError:
+            # Fall through to the in-memory hints on any read error.
+            pass
 
     if region in _ANATOMY_HINTS:
         return _ANATOMY_HINTS[region]
 
     label = region or "musculoskeletal region"
     return f"Thoroughly evaluate all visible structures in the {label}."
+
 
 _JSON_SCHEMA = """
 {
