@@ -20,7 +20,7 @@ MedCheck analyzes MRI scans using local ML models and frontier Vision-LLMs (Clau
 
 ---
 
-**[Quick Start](#quick-start)** · **[Documentation](docs/)** · **[Contributing](CONTRIBUTING.md)** · **[Report Bug](https://github.com/Liohtml/MedCheck/issues/new?template=bug_report.md)**
+**[Quick Start](#quick-start)** · **[Documentation](docs/)** · **[Contributing](CONTRIBUTING.md)** · **[Report Bug](https://github.com/Liohtml/MedCheck/issues/new?template=bug_report.yml)**
 
 ---
 
@@ -172,6 +172,13 @@ Run a workflow:
 
 ```bash
 medcheck analyze --source ./dicoms --workflow workflows/default.yml
+```
+
+Discover what's available:
+
+```bash
+medcheck providers   # list registered data providers
+medcheck models      # list LLM providers, default models, and availability
 ```
 
 ---

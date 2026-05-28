@@ -16,3 +16,18 @@ def test_cli_help():
     assert result.exit_code == 0
     assert "analyze" in result.stdout
     assert "serve" in result.stdout
+
+
+def test_cli_providers():
+    result = runner.invoke(app, ["providers"])
+    assert result.exit_code == 0
+    assert "local" in result.stdout
+    assert "easyradiology" in result.stdout
+
+
+def test_cli_models():
+    result = runner.invoke(app, ["models"])
+    assert result.exit_code == 0
+    assert "claude" in result.stdout
+    assert "openai" in result.stdout
+    assert "gemini" in result.stdout
