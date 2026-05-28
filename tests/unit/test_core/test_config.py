@@ -1,12 +1,14 @@
 from medcheck.core.config import Settings
 
 
-def test_default_settings():
+def test_default_settings(monkeypatch):
+    monkeypatch.delenv("MEDCHECK_HOST", raising=False)
     settings = Settings()
-    assert settings.host == "0.0.0.0"
+    assert settings.host == "127.0.0.1"
     assert settings.port == 8080
     assert settings.default_llm_provider == "claude"
     assert settings.default_language == "en"
+    assert settings.api_key is None
 
 
 def test_settings_from_env(monkeypatch):

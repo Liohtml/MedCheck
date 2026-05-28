@@ -153,16 +153,27 @@ def analyze(
 
 @app.command()
 def serve(
-    host: str = typer.Option("0.0.0.0", "--host", help="Bind host"),  # nosec B104
+    host: str = typer.Option("127.0.0.1", "--host", help="Bind host (use 0.0.0.0 to expose on the network)"),
     port: int = typer.Option(8080, "--port", help="Bind port"),
 ) -> None:
     """Start the MedCheck web UI server."""
+    import os
+
     import uvicorn
 
     from medcheck.web.app import create_app
 
     console.print(f"[bold blue]MedCheck v{__version__} - Web UI[/bold blue]")
     console.print(f"Starting server on http://{host}:{port}")
+
+    # Warn loudly when exposing patient-data endpoints on the network with no auth.
+    if host not in ("127.0.0.1", "localhost", "::1") and not os.environ.get("MEDCHECK_API_KEY"):
+        console.print(
+            f"[bold yellow]WARNING:[/bold yellow] Binding to {host} with no MEDCHECK_API_KEY set. "
+            "The /api endpoints will be reachable on the network without authentication. "
+            "Set MEDCHECK_API_KEY to require an X-API-Key header."
+        )
+
     uvicorn.run(create_app(), host=host, port=port)
 
 
@@ -196,9 +207,10 @@ def models() -> None:
 
     from medcheck.llm.claude import ClaudeProvider
     from medcheck.llm.gemini import GeminiProvider
+    from medcheck.llm.local import LocalLLMProvider
     from medcheck.llm.openai_provider import OpenAIProvider
 
-    providers_list = [ClaudeProvider(), OpenAIProvider(), GeminiProvider()]
+    providers_list = [ClaudeProvider(), OpenAIProvider(), GeminiProvider(), LocalLLMProvider()]
 
     table = Table(title="LLM Providers")
     table.add_column("Name", style="bold cyan")

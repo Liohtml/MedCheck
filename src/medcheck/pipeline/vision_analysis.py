@@ -263,10 +263,12 @@ class VisionAnalysisStep(PipelineStep):
         """Create an LLMRouter and register all available providers."""
         from medcheck.llm.claude import ClaudeProvider
         from medcheck.llm.gemini import GeminiProvider
+        from medcheck.llm.local import LocalLLMProvider
         from medcheck.llm.openai_provider import OpenAIProvider
 
         router = LLMRouter()
         router.register(ClaudeProvider())
         router.register(OpenAIProvider())
         router.register(GeminiProvider())
+        router.register(LocalLLMProvider())
         return router
