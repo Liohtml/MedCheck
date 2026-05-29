@@ -135,6 +135,11 @@ MEDCHECK_API_KEY=              # when set, /api requires an X-API-Key header
 > **Security:** The server binds to `127.0.0.1` by default. If you expose it on
 > the network (`MEDCHECK_HOST=0.0.0.0`), set `MEDCHECK_API_KEY` so the `/api`
 > endpoints require an `X-API-Key` header — this app handles patient PHI.
+>
+> **Patient data & cloud LLMs:** Vision analysis sends imaging data to an
+> external LLM provider only after explicit consent. Pass `--allow-cloud-llm`,
+> set `MEDCHECK_ALLOW_EXTERNAL_LLM=1`, or confirm the interactive prompt. See
+> [SECURITY.md](SECURITY.md#handling-of-patient-data-phi).
 
 > **Note:** easyRadiology requires no API key. Authentication uses the access code + date of birth provided by your radiology clinic (via SMS, email, or letter).
 

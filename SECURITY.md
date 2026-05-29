@@ -38,6 +38,26 @@ You will be kept informed throughout the process.
 
 MedCheck processes medical and health-related queries. Any vulnerability that could expose, alter, or misroute sensitive medical data is treated as **critical severity**. Please flag such issues explicitly in your report.
 
+### Handling of Patient Data (PHI)
+
+- **External LLM transmission is opt-in.** The `vision_analysis` step sends
+  imaging slices and clinical context to a cloud LLM provider (Claude / GPT /
+  Gemini) only after explicit consent: pass `--allow-cloud-llm` to `medcheck
+  analyze`, set `MEDCHECK_ALLOW_EXTERNAL_LLM=1`, or confirm the prompt in
+  interactive mode. Without consent the step raises an error instead of
+  transmitting data. Use the offline `local` provider to avoid transmission
+  entirely (see [#18](https://github.com/Liohtml/MedCheck/issues/18)).
+- **Logs are pseudonymised.** Patient names and study descriptions are never
+  written to stdout/logs; a short hash-derived pseudonymous identifier of the
+  patient ID is logged instead. Note this is pseudonymisation, not full
+  anonymisation — hashed identifiers in low-entropy ID spaces may still be
+  re-identifiable.
+- **Credentials are kept out of error messages.** Portal access codes are not
+  echoed into exceptions or logs.
+- **Network exposure is opt-in.** The web server binds to `127.0.0.1` by
+  default. When exposing it on the network, set `MEDCHECK_API_KEY` so `/api`
+  endpoints require an `X-API-Key` header.
+
 ## Scope
 
 In scope:

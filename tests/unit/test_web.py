@@ -20,10 +20,13 @@ def test_app_health():
     assert resp.json()["status"] == "ok"
 
 
+_VALID_BODY = {"source": "/data/scans"}
+
+
 def test_analyze_open_when_no_api_key_configured():
     # Back-compat: no MEDCHECK_API_KEY -> endpoint stays open (localhost default).
     client = TestClient(create_app(Settings(api_key=None)))
-    resp = client.post("/api/analyze")
+    resp = client.post("/api/analyze", json=_VALID_BODY)
     assert resp.status_code == 200
     assert resp.json()["status"] == "not_implemented"
 
@@ -31,13 +34,21 @@ def test_analyze_open_when_no_api_key_configured():
 def test_analyze_requires_key_when_configured():
     client = TestClient(create_app(Settings(api_key="s3cret")))
     # Missing key.
-    assert client.post("/api/analyze").status_code == 401
+    assert client.post("/api/analyze", json=_VALID_BODY).status_code == 401
     # Wrong key.
-    assert client.post("/api/analyze", headers={"X-API-Key": "nope"}).status_code == 401
+    assert client.post("/api/analyze", json=_VALID_BODY, headers={"X-API-Key": "nope"}).status_code == 401
     # Correct key.
-    ok = client.post("/api/analyze", headers={"X-API-Key": "s3cret"})
+    ok = client.post("/api/analyze", json=_VALID_BODY, headers={"X-API-Key": "s3cret"})
     assert ok.status_code == 200
     assert ok.json()["status"] == "not_implemented"
+
+
+def test_analyze_validates_request_body():
+    client = TestClient(create_app(Settings(api_key=None)))
+    # Missing required 'source'.
+    assert client.post("/api/analyze", json={}).status_code == 422
+    # Invalid report_format.
+    assert client.post("/api/analyze", json={"source": "x", "report_format": "docx"}).status_code == 422
 
 
 def test_health_open_even_with_api_key():

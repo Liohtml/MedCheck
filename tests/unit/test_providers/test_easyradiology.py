@@ -25,6 +25,14 @@ def test_parse_access_code_too_few_segments():
         parse_access_code("AB")
 
 
+def test_parse_access_code_error_does_not_leak_credential():
+    # The raw access code must never appear in the exception message (#30).
+    secret = "SUPERSECRETCODE"
+    with pytest.raises(ValueError) as exc:
+        parse_access_code(secret)
+    assert secret not in str(exc.value)
+
+
 def test_provider_url_patterns():
     p = EasyRadiologyProvider()
     assert any("easyradiology" in pat for pat in p.url_patterns)

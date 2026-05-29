@@ -28,7 +28,10 @@ from medcheck.providers.local import LocalProvider
 def parse_access_code(code: str) -> tuple[str, str]:
     segments = code.split("-")
     if len(segments) < 3:
-        raise ValueError(f"Invalid access code format: {code}. Expected at least 3 segments.")
+        # Never echo the credential itself into the exception (it can leak to logs).
+        raise ValueError(
+            f"Invalid access code format: expected at least 3 dash-separated segments, got {len(segments)}."
+        )
     return "-".join(segments[:2]), "-".join(segments[2:])
 
 
@@ -104,7 +107,7 @@ class EasyRadiologyProvider(DataProvider):
             resp.raise_for_status()
             data = resp.json()
         if not data.get("exams"):
-            raise ValueError(f"No exams found for code {view_code}")
+            raise ValueError("No exams found for the provided access code")
         exam = data["exams"][0]
         enc = json.loads(exam["encryptedAccessKey"])
         access_key_bytes = _decrypt_aes_cbc(enc["CipherOutputText"], code, enc["Salt"], enc["AesRijndaelIv"])
