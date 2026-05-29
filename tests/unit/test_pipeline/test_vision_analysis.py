@@ -150,3 +150,22 @@ def test_vision_step_allows_local_without_consent():
         result = step.run(ctx)
     assert result.overall_impression == "ok"
     local_provider.analyze_images.assert_called_once()
+    # Without consent, selection must default to the on-device provider.
+    assert mock_router.select.call_args.kwargs.get("preferred") == "local"
+
+
+def test_vision_step_honours_explicit_provider_preference():
+    ctx = _consent_test_context()
+    ctx.allow_external_llm = True
+    ctx.llm_provider = "gemini"
+
+    provider = MagicMock()
+    provider.name = "gemini"
+    provider.analyze_images.return_value = AnalysisResult(overall_impression="ok", raw_response="{}")
+    mock_router = MagicMock()
+    mock_router.select.return_value = provider
+
+    step = VisionAnalysisStep()
+    with patch.object(step, "_get_router", return_value=mock_router):
+        step.run(ctx)
+    assert mock_router.select.call_args.kwargs.get("preferred") == "gemini"

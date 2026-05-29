@@ -249,12 +249,15 @@ class VisionAnalysisStep(PipelineStep):
                     )
                 )
 
-        # Route to best available LLM provider
+        # Route to an LLM provider. Honour an explicit preference (CLI --model /
+        # workflow config); otherwise default to on-device 'local' unless the user
+        # has consented to external transmission, so offline execution stays reachable.
         router = self._get_router()
-        provider = router.select(preferred="claude")
+        preferred = context.llm_provider or ("claude" if context.allow_external_llm else "local")
+        provider = router.select(preferred=preferred)
 
         # Consent gate: cloud providers receive patient-derived images/context, so
-        # require explicit opt-in before any external transmission (HIPAA/GDPR).
+        # require explicit opt-in before any external transmission.
         if provider.name not in _LOCAL_PROVIDERS and not context.allow_external_llm:
             raise PermissionError(
                 f"Vision analysis would send patient-derived data to the external '{provider.name}' "

@@ -48,7 +48,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Default localhost binding and optional API key reduce unauthenticated exposure
   of patient imaging endpoints
 - Patient-derived data is no longer sent to external cloud LLM APIs without
-  explicit consent (HIPAA/GDPR)
+  explicit consent
 - Patient names are no longer logged to stdout; a non-reversible hash of the
   patient ID is logged instead
 - Portal access codes are no longer echoed into `ValueError` messages

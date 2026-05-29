@@ -47,8 +47,11 @@ MedCheck processes medical and health-related queries. Any vulnerability that co
   interactive mode. Without consent the step raises an error instead of
   transmitting data. Use the offline `local` provider to avoid transmission
   entirely (see [#18](https://github.com/Liohtml/MedCheck/issues/18)).
-- **Logs are pseudonymised.** Patient names are never written to stdout/logs;
-  a short, non-reversible hash of the patient ID is logged instead.
+- **Logs are pseudonymised.** Patient names and study descriptions are never
+  written to stdout/logs; a short hash-derived pseudonymous identifier of the
+  patient ID is logged instead. Note this is pseudonymisation, not full
+  anonymisation — hashed identifiers in low-entropy ID spaces may still be
+  re-identifiable.
 - **Credentials are kept out of error messages.** Portal access codes are not
   echoed into exceptions or logs.
 - **Network exposure is opt-in.** The web server binds to `127.0.0.1` by

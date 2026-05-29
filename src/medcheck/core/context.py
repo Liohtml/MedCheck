@@ -75,6 +75,8 @@ class PipelineContext:
     detected_anatomy: str | None = None
     detected_planes: dict[str, Any] = field(default_factory=dict)
     clinical_context: ClinicalContext | None = None
+    # Preferred LLM provider for vision analysis (e.g. "claude", "local"); None = auto.
+    llm_provider: str | None = None
     # Explicit consent to transmit patient-derived data to external cloud LLM APIs.
     allow_external_llm: bool = False
     anomaly_scores: dict[str, Any] = field(default_factory=dict)

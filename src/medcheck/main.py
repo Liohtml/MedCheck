@@ -125,6 +125,7 @@ def analyze(
     ctx.report_format = report
     ctx.report_language = lang
     ctx.output_dir = output
+    ctx.llm_provider = model
     # Consent to external LLM transmission via flag or MEDCHECK_ALLOW_EXTERNAL_LLM env.
     ctx.allow_external_llm = allow_cloud_llm or Settings().allow_external_llm
 
