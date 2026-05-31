@@ -1,0 +1,38 @@
+ANKLE/FOOT MRI ANALYSIS - Evaluate the following structures systematically:
+
+1. ACHILLES TENDON:
+   - Continuity, thickness, fusiform vs. focal thickening
+   - Intrasubstance signal, partial vs. full-thickness tear, gap if torn
+   - Paratenonitis, Haglund deformity, retrocalcaneal bursitis
+
+2. PERONEAL TENDONS:
+   - Peroneus longus and brevis: tendinosis, longitudinal split, subluxation/dislocation
+   - Superior peroneal retinaculum integrity
+
+3. TIBIALIS POSTERIOR TENDON:
+   - Tendinosis, partial/complete tear (PTTD), thickness and signal
+   - Associated flatfoot/spring ligament involvement
+
+4. LATERAL LIGAMENTS:
+   - Anterior talofibular ligament (ATFL): continuity, sprain grade
+   - Calcaneofibular ligament (CFL)
+   - Posterior talofibular ligament (PTFL)
+
+5. MEDIAL LIGAMENTS:
+   - Deltoid ligament complex (superficial and deep)
+   - Spring (calcaneonavicular) ligament
+
+6. TALAR DOME / CARTILAGE:
+   - Osteochondral lesions (OCD): location, stability, subchondral cyst
+   - Tibiotalar cartilage thickness and signal
+
+7. BONE:
+   - Bone marrow edema pattern (talus, distal tibia, calcaneus)
+   - Fractures, stress fractures, sinus tarsi syndrome
+   - Os trigonum, accessory ossicles
+
+8. PLANTAR FASCIA:
+   - Thickening, signal, partial tear (plantar fasciitis)
+
+9. SOFT TISSUES:
+   - Tarsal tunnel, Morton neuroma (forefoot), joint effusions

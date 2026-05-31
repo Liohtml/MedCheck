@@ -42,6 +42,13 @@ def test_load_anatomy_instructions_falls_back_to_hint():
     assert "diffusion restriction" in instructions
 
 
+def test_load_anatomy_instructions_hip_ankle_wrist_templates():
+    # hip/ankle/wrist now ship detailed templates (issues #10, #11, #12).
+    assert "FEMOROACETABULAR IMPINGEMENT" in load_anatomy_instructions("hip")
+    assert "ACHILLES TENDON" in load_anatomy_instructions("ankle")
+    assert "TRIANGULAR FIBROCARTILAGE COMPLEX" in load_anatomy_instructions("wrist")
+
+
 def test_load_anatomy_instructions_generic_fallback():
     instructions = load_anatomy_instructions("elbow")
     assert "elbow" in instructions.lower()

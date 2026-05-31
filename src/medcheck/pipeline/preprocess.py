@@ -15,8 +15,11 @@ from medcheck.core.step import PipelineStep
 _ANATOMY_PATTERNS: list[tuple[str, str]] = [
     # spine checked first so lumbar_spine_* does not match knee pattern via sag
     (r"spine|lumbar|cervical|thoracic|wirbel", "spine"),
-    (r"knee|knie|gelenk|pd_tse|tse_fs", "knee"),
+    (r"knee|knie|pd_tse|tse_fs", "knee"),
     (r"shoulder|schulter", "shoulder"),
+    (r"hip|hüfte|huefte|femoroacetabular", "hip"),
+    (r"ankle|sprunggelenk|achilles|foot|fuß|fuss|calcaneus|hindfoot", "ankle"),
+    (r"wrist|handgelenk|carpal|tfcc|scaphoid", "wrist"),
 ]
 
 _PLANE_PATTERNS: list[tuple[str, str]] = [
