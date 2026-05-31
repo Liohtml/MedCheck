@@ -4,7 +4,14 @@ import os
 from typing import Any
 
 from medcheck.core.context import ClinicalContext
-from medcheck.llm.base import AnalysisResult, AnnotatedImage, LLMProvider, parse_llm_response
+from medcheck.llm.base import (
+    AnalysisResult,
+    AnnotatedImage,
+    LLMProvider,
+    call_with_retries,
+    llm_timeout,
+    parse_llm_response,
+)
 
 
 class GeminiProvider(LLMProvider):
@@ -41,6 +48,9 @@ class GeminiProvider(LLMProvider):
 
         parts.append(prompt)
 
-        response = model.generate_content(parts)
-        raw = response.text
+        def _request() -> str:
+            response = model.generate_content(parts, request_options={"timeout": llm_timeout()})
+            return str(response.text)
+
+        raw = call_with_retries(_request, provider=self.name)
         return parse_llm_response(raw)
