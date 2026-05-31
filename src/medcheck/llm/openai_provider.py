@@ -38,7 +38,9 @@ class OpenAIProvider(LLMProvider):
         api_key = os.environ.get("OPENAI_API_KEY")
         if not api_key:
             raise RuntimeError("OPENAI_API_KEY not set")
-        client = OpenAI(api_key=api_key, timeout=llm_timeout())
+        # max_retries=0: call_with_retries is the single retry controller, so we
+        # disable the SDK's own retries to avoid stacking (up to 3 x 3 attempts).
+        client = OpenAI(api_key=api_key, timeout=llm_timeout(), max_retries=0)
 
         content: list[dict[str, Any]] = []
         for img in images:

@@ -69,4 +69,6 @@ def test_htmx_is_vendored_locally():
     assert resp.status_code == 200
     page = client.get("/").text
     assert "/static/htmx.min.js" in page
+    assert 'integrity="sha384-' in page
+    assert 'crossorigin="anonymous"' in page
     assert "unpkg.com" not in page

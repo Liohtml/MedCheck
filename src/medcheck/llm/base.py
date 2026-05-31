@@ -33,6 +33,35 @@ def _llm_attempts() -> int:
         return 3
 
 
+def _status_code(exc: BaseException) -> int | None:
+    """Best-effort extraction of an HTTP status code from an SDK exception."""
+    for attr in ("status_code", "code", "http_status"):
+        value = getattr(exc, attr, None)
+        if isinstance(value, int):
+            return value
+    response = getattr(exc, "response", None)
+    status = getattr(response, "status_code", None)
+    return status if isinstance(status, int) else None
+
+
+def is_transient_error(exc: BaseException) -> bool:
+    """Return True for errors worth retrying (timeouts, connection drops, 429/5xx).
+
+    Permanent failures (auth, invalid request, 4xx other than 429) should fail
+    fast rather than burn retries and inflate cost/latency.
+    """
+    if isinstance(exc, TimeoutError | ConnectionError):
+        return True
+    # Many SDKs expose timeout/connection errors only by class name.
+    name = type(exc).__name__.lower()
+    if any(token in name for token in ("timeout", "connection", "serviceunavailable")):
+        return True
+    status = _status_code(exc)
+    if status is not None:
+        return status == 429 or status >= 500
+    return False
+
+
 def call_with_retries(
     fn: Callable[[], T],
     *,
@@ -40,22 +69,26 @@ def call_with_retries(
     attempts: int | None = None,
     base_delay: float = 1.0,
 ) -> T:
-    """Call *fn*, retrying transient failures with exponential backoff.
+    """Call *fn*, retrying only transient failures with exponential backoff.
 
-    On the final failure the underlying exception is wrapped in an
-    :class:`LLMProviderError` carrying the provider name, so callers get a clear,
-    actionable message instead of an opaque SDK traceback crashing the pipeline.
+    Transient errors (timeouts, connection drops, HTTP 429/5xx) are retried;
+    permanent ones (auth, invalid request) fail fast. On the final/permanent
+    failure the underlying exception is wrapped in an :class:`LLMProviderError`
+    carrying the provider name, so callers get a clear, actionable message
+    instead of an opaque SDK traceback crashing the pipeline.
     """
     total = attempts if attempts is not None else _llm_attempts()
     last_exc: Exception | None = None
     for attempt in range(total):
         try:
             return fn()
-        except Exception as exc:  # noqa: BLE001 - normalise any SDK error to LLMProviderError
+        except Exception as exc:  # normalise any SDK error into LLMProviderError
             last_exc = exc
-            if attempt < total - 1:
+            if attempt < total - 1 and is_transient_error(exc):
                 time.sleep(base_delay * (2**attempt))
-    raise LLMProviderError(f"{provider} request failed after {total} attempt(s): {last_exc}") from last_exc
+                continue
+            break
+    raise LLMProviderError(f"{provider} request failed after {attempt + 1} attempt(s): {last_exc}") from last_exc
 
 
 @dataclass
