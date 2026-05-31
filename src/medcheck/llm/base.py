@@ -77,7 +77,7 @@ def call_with_retries(
     carrying the provider name, so callers get a clear, actionable message
     instead of an opaque SDK traceback crashing the pipeline.
     """
-    total = attempts if attempts is not None else _llm_attempts()
+    total = max(1, attempts if attempts is not None else _llm_attempts())
     last_exc: Exception | None = None
     for attempt in range(total):
         try:

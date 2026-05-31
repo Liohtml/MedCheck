@@ -72,6 +72,15 @@ def test_is_transient_error_classification():
     assert not is_transient_error(ValueError("bad request"))
 
 
+def test_call_with_retries_coerces_invalid_attempts():
+    # attempts <= 0 must still run once and wrap the error, not crash.
+    def fn():
+        raise ConnectionError("boom")
+
+    with pytest.raises(LLMProviderError, match="failed after 1 attempt"):
+        call_with_retries(fn, provider="x", attempts=0, base_delay=0)
+
+
 def test_call_with_retries_fails_fast_on_non_transient():
     calls = {"n": 0}
 
