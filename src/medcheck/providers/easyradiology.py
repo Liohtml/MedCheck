@@ -18,6 +18,10 @@ from typing import Any, ClassVar
 from urllib.parse import urlparse
 
 import httpx
+
+# Uses pycryptodome (the maintained pycrypto fork), NOT the abandoned pycrypto.
+# Bandit's B413 fires on the shared "Crypto" namespace and cannot tell the two
+# apart, so the suppression is required even though the library is the safe one.
 from Crypto.Cipher import AES  # nosec B413
 
 from medcheck.core.context import DicomSeries

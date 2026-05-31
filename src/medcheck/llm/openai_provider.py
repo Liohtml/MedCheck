@@ -5,7 +5,14 @@ import os
 from typing import Any
 
 from medcheck.core.context import ClinicalContext
-from medcheck.llm.base import AnalysisResult, AnnotatedImage, LLMProvider, parse_llm_response
+from medcheck.llm.base import (
+    AnalysisResult,
+    AnnotatedImage,
+    LLMProvider,
+    call_with_retries,
+    llm_timeout,
+    parse_llm_response,
+)
 
 
 class OpenAIProvider(LLMProvider):
@@ -31,7 +38,7 @@ class OpenAIProvider(LLMProvider):
         api_key = os.environ.get("OPENAI_API_KEY")
         if not api_key:
             raise RuntimeError("OPENAI_API_KEY not set")
-        client = OpenAI(api_key=api_key)
+        client = OpenAI(api_key=api_key, timeout=llm_timeout())
 
         content: list[dict[str, Any]] = []
         for img in images:
@@ -47,11 +54,13 @@ class OpenAIProvider(LLMProvider):
 
         content.append({"type": "text", "text": prompt})
 
-        response = client.chat.completions.create(
-            model=self.model,
-            messages=[{"role": "user", "content": content}],
-            max_tokens=4096,
-        )
+        def _request() -> str:
+            response = client.chat.completions.create(
+                model=self.model,
+                messages=[{"role": "user", "content": content}],
+                max_tokens=4096,
+            )
+            return response.choices[0].message.content or ""
 
-        raw = response.choices[0].message.content or ""
+        raw = call_with_retries(_request, provider=self.name)
         return parse_llm_response(raw)

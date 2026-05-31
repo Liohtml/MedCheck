@@ -1,11 +1,37 @@
+from base64 import b64encode
+
 import pytest
 
 from medcheck.providers.easyradiology import (
     EasyRadiologyProvider,
+    _decrypt_aes_cbc,
     _scrypt_derive,
     _validate_download_url,
     parse_access_code,
 )
+
+
+def test_decrypt_aes_cbc_round_trip():
+    """Verify the AES-CBC + PKCS7 decryption path against a known ciphertext."""
+    from Crypto.Cipher import AES  # pycryptodome
+
+    password = "N6D-8KT-M9F-9JX"
+    salt = b"0123456789abcdef"
+    iv = b"sixteen byte iv!"
+    plaintext = b"access-key-payload-12345"
+
+    key = _scrypt_derive(password, salt)
+    pad_len = 16 - (len(plaintext) % 16)
+    padded = plaintext + bytes([pad_len]) * pad_len
+    ciphertext = AES.new(key, AES.MODE_CBC, iv).encrypt(padded)
+
+    recovered = _decrypt_aes_cbc(
+        b64encode(ciphertext).decode(),
+        password,
+        salt.hex(),
+        b64encode(iv).decode(),
+    )
+    assert recovered == plaintext
 
 
 def test_parse_access_code_four_segments():

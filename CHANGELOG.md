@@ -24,12 +24,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Consent gate for external LLM transmission: `--allow-cloud-llm` flag,
   `MEDCHECK_ALLOW_EXTERNAL_LLM` env var, and an interactive confirmation prompt
 - Pydantic request schema (`AnalyzeRequest`) with validation for `POST /api/analyze`
+- LLM API calls now have a configurable timeout (`MEDCHECK_LLM_TIMEOUT`) and
+  automatic retry with exponential backoff (`MEDCHECK_LLM_RETRIES`); failures
+  surface as a clear `LLMProviderError` instead of crashing the pipeline
 
 ### Changed
 - Vision analysis now loads detailed anatomy templates from `prompts/anatomy/*.txt`
   (knee/shoulder/spine), falling back to built-in hints when no template exists
 - Web server now binds to `127.0.0.1` by default instead of `0.0.0.0`; expose on
   the network only via an explicit `MEDCHECK_HOST=0.0.0.0`
+- htmx is now vendored locally (`/static/htmx.min.js`) instead of loaded from a
+  CDN, with a Subresource Integrity hash; works in air-gapped deployments
+- Docker images now run as a non-root `medcheck` user
 
 ### Deprecated
 

@@ -5,7 +5,14 @@ import os
 from typing import Any
 
 from medcheck.core.context import ClinicalContext
-from medcheck.llm.base import AnalysisResult, AnnotatedImage, LLMProvider, parse_llm_response
+from medcheck.llm.base import (
+    AnalysisResult,
+    AnnotatedImage,
+    LLMProvider,
+    call_with_retries,
+    llm_timeout,
+    parse_llm_response,
+)
 
 
 class ClaudeProvider(LLMProvider):
@@ -31,7 +38,7 @@ class ClaudeProvider(LLMProvider):
         api_key = os.environ.get("ANTHROPIC_API_KEY")
         if not api_key:
             raise RuntimeError("ANTHROPIC_API_KEY not set")
-        client = anthropic.Anthropic(api_key=api_key)
+        client = anthropic.Anthropic(api_key=api_key, timeout=llm_timeout())
 
         content: list[dict[str, Any]] = []
         for img in images:
@@ -51,11 +58,13 @@ class ClaudeProvider(LLMProvider):
 
         content.append({"type": "text", "text": prompt})
 
-        message = client.messages.create(
-            model=self.model,
-            max_tokens=4096,
-            messages=[{"role": "user", "content": content}],
-        )
+        def _request() -> str:
+            message = client.messages.create(
+                model=self.model,
+                max_tokens=4096,
+                messages=[{"role": "user", "content": content}],
+            )
+            return str(message.content[0].text)
 
-        raw = message.content[0].text
+        raw = call_with_retries(_request, provider=self.name)
         return parse_llm_response(raw)

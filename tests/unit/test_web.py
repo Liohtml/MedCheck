@@ -60,3 +60,13 @@ def test_health_open_even_with_api_key():
 def test_default_host_is_localhost(monkeypatch):
     monkeypatch.delenv("MEDCHECK_HOST", raising=False)
     assert Settings().host == "127.0.0.1"
+
+
+def test_htmx_is_vendored_locally():
+    # #37: htmx must be served locally, not from a third-party CDN.
+    client = TestClient(create_app())
+    resp = client.get("/static/htmx.min.js")
+    assert resp.status_code == 200
+    page = client.get("/").text
+    assert "/static/htmx.min.js" in page
+    assert "unpkg.com" not in page
