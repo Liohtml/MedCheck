@@ -89,10 +89,12 @@ def test_scrypt_derive_different_passwords():
     assert key1 != key2
 
 
-def test_authenticate_requires_code_and_dob():
+def test_authenticate_requires_only_code():
+    # #31: the access code authenticates; dob is not used and must not gate access.
     p = EasyRadiologyProvider()
     assert p.authenticate({"code": "ABC", "dob": "01.01.2000"}) is True
-    assert p.authenticate({"code": "ABC"}) is False
+    assert p.authenticate({"code": "ABC"}) is True
+    assert p.authenticate({"code": ""}) is False
     assert p.authenticate({}) is False
 
 

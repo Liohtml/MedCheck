@@ -85,7 +85,11 @@ class EasyRadiologyProvider(DataProvider):
     BASE_URL = "https://portal.easyradiology.net"
 
     def authenticate(self, credentials: dict[str, str]) -> bool:
-        return bool(credentials.get("code") and credentials.get("dob"))
+        # Only the access code authenticates this client: it derives the scrypt
+        # key verification sent to CheckViewCode. Date of birth is collected by
+        # the portal UI but is NOT used (nor verified) by this reverse-engineered
+        # flow, so we must not gate on it and imply a protection that isn't there.
+        return bool(credentials.get("code"))
 
     def fetch(self, target: str, credentials: dict[str, str]) -> list[DicomSeries]:
         code = credentials["code"]

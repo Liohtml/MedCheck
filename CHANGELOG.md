@@ -42,6 +42,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 
 ### Fixed
+- easyRadiology `authenticate()` no longer requires a date of birth: DOB is not
+  used or verified by this client, so gating on it implied a protection that did
+  not exist. Authentication is based on the access code (#31)
 - Vision prompts now use the detailed anatomy templates that were previously
   shipped but never loaded
 - README "Report Bug" link now points to the correct `bug_report.yml` template

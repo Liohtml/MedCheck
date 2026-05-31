@@ -105,7 +105,7 @@ uv run medcheck serve
 | Source | Type | Notes |
 |---|---|---|
 | **Local DICOM** | Folder / ZIP | Point to any directory or ZIP of DICOM files |
-| **easyRadiology** | Portal link | Uses access code + date of birth (provided by your clinic) |
+| **easyRadiology** | Portal link | Authenticates with the access code from your clinic (date of birth optional) |
 | **Custom providers** | Plugin | See [docs/providers.md](docs/providers.md) |
 
 ---
@@ -141,7 +141,7 @@ MEDCHECK_API_KEY=              # when set, /api requires an X-API-Key header
 > set `MEDCHECK_ALLOW_EXTERNAL_LLM=1`, or confirm the interactive prompt. See
 > [SECURITY.md](SECURITY.md#handling-of-patient-data-phi).
 
-> **Note:** easyRadiology requires no API key. Authentication uses the access code + date of birth provided by your radiology clinic (via SMS, email, or letter).
+> **Note:** easyRadiology requires no API key. Authentication uses the access code provided by your radiology clinic (via SMS, email, or letter). A date of birth may be requested by the portal but is **not** verified by MedCheck.
 
 ### Docker environment variables
 
