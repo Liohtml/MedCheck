@@ -24,6 +24,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Consent gate for external LLM transmission: `--allow-cloud-llm` flag,
   `MEDCHECK_ALLOW_EXTERNAL_LLM` env var, and an interactive confirmation prompt
 - Pydantic request schema (`AnalyzeRequest`) with validation for `POST /api/analyze`
+- Detailed anatomy prompt templates for hip, ankle/foot, and wrist (#10, #11, #12),
+  with matching `detect_anatomy()` keyword support
 - LLM API calls now have a configurable timeout (`MEDCHECK_LLM_TIMEOUT`) and
   automatic retry with exponential backoff (`MEDCHECK_LLM_RETRIES`); failures
   surface as a clear `LLMProviderError` instead of crashing the pipeline

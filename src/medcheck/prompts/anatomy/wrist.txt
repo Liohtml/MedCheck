@@ -1,0 +1,32 @@
+WRIST MRI ANALYSIS - Evaluate the following structures systematically:
+
+1. TRIANGULAR FIBROCARTILAGE COMPLEX (TFCC):
+   - Central disc and peripheral attachments (foveal, ulnar styloid)
+   - Signal, perforation/tear, Palmer classification (traumatic vs. degenerative)
+   - Ulnar variance and ulnar impaction changes
+
+2. INTRINSIC LIGAMENTS:
+   - Scapholunate (SL) ligament: continuity, partial/complete tear, widening of SL interval
+   - Lunotriquetral (LT) ligament: signal and integrity
+   - Associated DISI/VISI alignment
+
+3. CARPAL BONES:
+   - Scaphoid: fracture (waist most common), nonunion, avascular necrosis (proximal pole)
+   - Lunate: Kienbock disease (AVN), signal staging
+   - Bone marrow edema, occult fracture, cysts
+
+4. TENDONS:
+   - Extensor compartments (I-VI): tendinosis, tenosynovitis (e.g. de Quervain in compartment I)
+   - Flexor tendons and flexor carpi radialis/ulnaris
+
+5. CARPAL TUNNEL:
+   - Median nerve: caliber change, signal, flattening
+   - Flexor retinaculum bowing, tenosynovitis, space-occupying lesions
+
+6. JOINTS & CARTILAGE:
+   - Radiocarpal and distal radioulnar joint (DRUJ) congruity and effusion
+   - Articular cartilage, ganglion cysts (dorsal/volar)
+
+7. BONE & SOFT TISSUES:
+   - Distal radius/ulna for fracture or edema
+   - Ulnar (Guyon) canal

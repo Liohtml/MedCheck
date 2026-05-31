@@ -1,0 +1,35 @@
+HIP MRI ANALYSIS - Evaluate the following structures systematically:
+
+1. ACETABULAR LABRUM:
+   - Anterior, superior, and posterior portions
+   - Signal (intrasubstance vs. surface-reaching tear), morphology, paralabral cysts
+   - Tear type: detachment, intrasubstance, degenerative
+
+2. ARTICULAR CARTILAGE:
+   - Femoral head: thickness, signal, surface integrity
+   - Acetabulum: focal defects, delamination, chondral flaps
+
+3. FEMOROACETABULAR IMPINGEMENT (FAI):
+   - Cam morphology: aspherical femoral head-neck junction, increased alpha angle
+   - Pincer morphology: acetabular overcoverage, os acetabuli
+   - Associated anterosuperior labral/chondral damage
+
+4. BONE:
+   - Bone marrow edema pattern (femoral head, neck, acetabulum)
+   - Avascular necrosis (AVN): subchondral signal changes, double-line sign, crescent sign
+   - Subchondral fracture, stress fracture
+   - Transient osteoporosis
+
+5. JOINT EFFUSION:
+   - Joint distension, synovitis
+   - Paralabral or ganglion cysts
+
+6. TENDONS:
+   - Gluteus medius/minimus tendons (greater trochanter insertion), tendinosis/tears
+   - Iliopsoas tendon: tendinosis, bursitis, snapping
+   - Hamstring origin (ischial tuberosity)
+
+7. SOFT TISSUES:
+   - Trochanteric and iliopsoas bursae
+   - Abductor mechanism
+   - Surrounding musculature for atrophy/edema

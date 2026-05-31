@@ -61,6 +61,22 @@ def test_detect_anatomy_spine():
     assert detect_anatomy("lumbar_spine_t2_sag") == "spine"
 
 
+def test_detect_anatomy_hip():
+    assert detect_anatomy("hip_pd_fs_cor") == "hip"
+    assert detect_anatomy("Hüfte links") == "hip"
+
+
+def test_detect_anatomy_ankle():
+    assert detect_anatomy("ankle_t1_sag") == "ankle"
+    assert detect_anatomy("Sprunggelenk rechts") == "ankle"
+    assert detect_anatomy("foot_pd_fs") == "ankle"
+
+
+def test_detect_anatomy_wrist():
+    assert detect_anatomy("wrist_pd_cor") == "wrist"
+    assert detect_anatomy("Handgelenk T2") == "wrist"
+
+
 def test_detect_anatomy_unknown():
     assert detect_anatomy("unknown_sequence") == "unknown"
 
