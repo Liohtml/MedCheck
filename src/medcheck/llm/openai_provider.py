@@ -21,8 +21,9 @@ class OpenAIProvider(LLMProvider):
     name = "openai"
     supports_vision = True
 
-    def __init__(self, model: str = "gpt-5.5") -> None:
-        self.model = model
+    def __init__(self, model: str | None = None) -> None:
+        # Overridable via MEDCHECK_OPENAI_MODEL.
+        self.model = model or os.environ.get("MEDCHECK_OPENAI_MODEL", "gpt-5.5")
 
     def check_available(self) -> bool:
         return bool(os.environ.get("OPENAI_API_KEY"))

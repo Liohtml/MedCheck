@@ -47,7 +47,7 @@ Run LLM-based structural analysis.
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `model` | string | `"claude-opus-4-7"` | LLM to use |
+| `model` | string | `"claude-opus-4-8"` | LLM to use |
 | `anatomy` | string | — | Anatomy region (required if not set in `load`) |
 | `prompt_override` | string | `null` | Path to a custom system prompt |
 
@@ -89,7 +89,7 @@ steps:
     uses: analyze
     depends_on: [load]
     with:
-      model: claude-opus-4-7
+      model: claude-opus-4-8
 
   - id: report
     uses: report

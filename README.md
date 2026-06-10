@@ -29,7 +29,7 @@ MedCheck analyzes MRI scans using local ML models and frontier Vision-LLMs (Clau
 - **Plug & Play Docker** — single `docker run` command, no local setup required
 - **Multiple data sources** — local DICOM files, easyRadiology platform, and custom plugins
 - **Local ML analysis** — on-device inference with LLaVA-Med and MONAI-based models; fully offline capable
-- **Vision-LLM analysis** — frontier model support for Claude Opus 4.7, GPT-5.5, and Gemini 3.5 Flash
+- **Vision-LLM analysis** — frontier model support for Claude Opus 4.8, GPT-5.5, and Gemini 3.5 Flash
 - **Clinical context input** — attach patient history, symptoms, and prior findings to guide report generation
 - **Professional PDF/HTML reports** — annotated images with structured radiology-style findings and impressions
 - **YAML workflow engine** — compose and version-control custom analysis pipelines as code
@@ -93,7 +93,7 @@ uv run medcheck serve
 
 | Model | Provider | Best For |
 |---|---|---|
-| **Claude Opus 4.7** | Anthropic | Highest diagnostic quality and reasoning depth |
+| **Claude Opus 4.8** | Anthropic | Highest diagnostic quality and reasoning depth |
 | **GPT-5.5** | OpenAI | High-resolution image understanding |
 | **Gemini 3.5 Flash** | Google | Speed-optimized, cost-effective batch processing |
 | **LLaVA-Med** | Local | Fully offline, no API key required *(coming soon — [#18](https://github.com/Liohtml/MedCheck/issues/18))* |

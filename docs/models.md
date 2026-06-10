@@ -4,7 +4,7 @@
 
 | Model | Provider | Context window | Vision | Approx. cost (per 1 M tokens) | Notes |
 |-------|----------|---------------|--------|-------------------------------|-------|
-| `claude-opus-4-7` | Anthropic | 200 K | Yes | $15 in / $75 out | Best accuracy; recommended for complex cases |
+| `claude-opus-4-8` | Anthropic | 200 K | Yes | $15 in / $75 out | Best accuracy; recommended for complex cases |
 | `gpt-5-5` | OpenAI | 128 K | Yes | $10 in / $30 out | Strong general performance |
 | `gemini-3-5-flash` | Google | 1 M | Yes | $0.35 in / $1.05 out | Fastest; good for high-volume screening |
 | `local` | On-device | varies | Yes | Free (hardware cost) | Requires `full` Docker image; no data leaves your network |
@@ -18,7 +18,7 @@
 Set the default model in `.env` or environment variables:
 
 ```bash
-MEDCHECK_DEFAULT_MODEL=claude-opus-4-7
+MEDCHECK_DEFAULT_MODEL=claude-opus-4-8
 ```
 
 Or per-request via CLI:
@@ -66,7 +66,7 @@ For a typical batch of 100 knee MRI studies (~500 images, ~2 M tokens total):
 
 | Model | Estimated cost |
 |-------|---------------|
-| `claude-opus-4-7` | ~$120 |
+| `claude-opus-4-8` | ~$120 |
 | `gpt-5-5` | ~$60 |
 | `gemini-3-5-flash` | ~$2 |
 | `local` | $0 (hardware only) |

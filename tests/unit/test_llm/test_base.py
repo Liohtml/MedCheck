@@ -6,7 +6,36 @@ from medcheck.llm.base import (
     call_with_retries,
     is_transient_error,
     llm_timeout,
+    parse_llm_response,
 )
+
+
+def test_parse_llm_response_clamps_and_coerces():
+    raw = """{"structures": [
+        {"name": "ACL", "status": "torn", "confidence": 1.7, "slices_evaluated": "3"},
+        {"name": "PCL", "confidence": "high", "bogus_key": 1}
+    ], "overall_impression": "x"}"""
+    result = parse_llm_response(raw)
+    assert len(result.structures) == 2
+    acl = result.structures[0]
+    assert acl.confidence == 1.0  # clamped from 1.7
+    assert acl.slices_evaluated == 3  # coerced from "3"
+    pcl = result.structures[1]
+    assert pcl.confidence == 0.0  # "high" -> safe default
+    assert pcl.name == "PCL"  # unknown key ignored, didn't crash
+
+
+def test_parse_llm_response_skips_empty_and_nonlist():
+    # Entries with neither name nor findings are dropped.
+    assert parse_llm_response('{"structures": [{"confidence": 0.9}]}').structures == []
+    # Non-list "structures" must not crash.
+    assert parse_llm_response('{"structures": "oops"}').structures == []
+
+
+def test_parse_llm_response_non_json_falls_back():
+    result = parse_llm_response("no json here")
+    assert result.overall_impression == "no json here"
+    assert result.structures == []
 
 
 def test_call_with_retries_returns_on_first_success():

@@ -21,8 +21,10 @@ class ClaudeProvider(LLMProvider):
     name = "claude"
     supports_vision = True
 
-    def __init__(self, model: str = "claude-opus-4-7") -> None:
-        self.model = model
+    def __init__(self, model: str | None = None) -> None:
+        # Default is overridable via MEDCHECK_CLAUDE_MODEL to avoid hardcoding a
+        # model ID that ages out of the API.
+        self.model = model or os.environ.get("MEDCHECK_CLAUDE_MODEL", "claude-opus-4-8")
 
     def check_available(self) -> bool:
         return bool(os.environ.get("ANTHROPIC_API_KEY"))

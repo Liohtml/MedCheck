@@ -20,8 +20,9 @@ class GeminiProvider(LLMProvider):
     name = "gemini"
     supports_vision = True
 
-    def __init__(self, model: str = "gemini-3.5-flash") -> None:
-        self.model = model
+    def __init__(self, model: str | None = None) -> None:
+        # Overridable via MEDCHECK_GEMINI_MODEL.
+        self.model = model or os.environ.get("MEDCHECK_GEMINI_MODEL", "gemini-3.5-flash")
 
     def check_available(self) -> bool:
         return bool(os.environ.get("GOOGLE_API_KEY"))
