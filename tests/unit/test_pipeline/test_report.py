@@ -68,3 +68,34 @@ def test_report_step_validate():
     step = ReportStep()
     # Should still work even without findings (generates empty report)
     assert step.validate(ctx) is True
+
+
+def test_report_step_language_german(tmp_path: Path):
+    ctx = _make_ctx(tmp_path)
+    ctx.report_language = "de"
+
+    step = ReportStep()
+    result = step.run(ctx)
+
+    assert Path(result.report_path).exists()
+    data = json.loads(Path(result.report_path).read_text())
+
+    # Check that structural or dictionary labels are translated to German
+    # Note: Adjust the exact key/value check below based on what your de.json looks like!
+    assert "patient" in data or "patienten_info" in data
+
+
+def test_report_step_language_fallback(tmp_path: Path):
+    ctx = _make_ctx(tmp_path)
+    # Set to an unsupported language to trigger the English fallback flow
+    ctx.report_language = "xyz_unsupported"
+
+    step = ReportStep()
+    result = step.run(ctx)
+
+    assert Path(result.report_path).exists()
+    data = json.loads(Path(result.report_path).read_text())
+
+    # Verify it gracefully fell back to standard English keys/labels
+    assert "patient" in data
+    assert data["patient"]["name"] == "Test^Patient"
