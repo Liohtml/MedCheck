@@ -20,5 +20,6 @@
   "headings_limitations": "Limites de l'Examen",
   "none_specified": "Aucune spécifiée.",
   "field_value": "Valeur",
+  "field_key": "Champ",
   "disclaimer": "AVERTISSEMENT : Ce rapport a été généré par un système d'IA automatisé (MedCheck) et est destiné à assister les professionnels de santé qualifiés. Il ne constitue pas un diagnostic clinique définitif. Toutes les observations doivent être examinées et validées par un radiologue ou un médecin agréé."
 }

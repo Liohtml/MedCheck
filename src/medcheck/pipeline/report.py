@@ -238,8 +238,8 @@ def generate_html_report(ctx: PipelineContext) -> str:
 
     limitations_items = "".join(f"<li>{html.escape(str(lim))}</li>" for lim in ctx.limitations)
 
-    # Break long translation checks into concise variables to pass line length rules
-    lang_check = i18n.get("field_key", "Field") if ctx.report_language != "en" else "Field"
+    # Fetch the localized table header cleanly from the catalog string dictionary
+    lang_check = i18n.get("field_key", "Field")
     th_field = html.escape(lang_check)
     th_value = html.escape(i18n["field_value"])
 
