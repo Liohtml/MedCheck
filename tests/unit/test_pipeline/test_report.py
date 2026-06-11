@@ -99,3 +99,15 @@ def test_report_step_language_fallback(tmp_path: Path):
 
     # Verify it gracefully fell back to standard English markup text
     assert "Patient Information" in html_content
+
+
+def test_report_step_pdf(tmp_path: Path):
+    ctx = _make_ctx(tmp_path)
+    ctx.report_format = "pdf"
+    ctx.report_language = "de"  # Test localized PDF generation
+
+    step = ReportStep()
+    result = step.run(ctx)
+
+    assert result.report_path.endswith(".pdf")
+    assert Path(result.report_path).exists()
