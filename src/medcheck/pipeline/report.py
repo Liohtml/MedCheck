@@ -20,7 +20,6 @@ from medcheck.i18n import get_strings
 
 def generate_json_report(ctx: PipelineContext) -> str:
     """Build a structured report dict and return it as a JSON string."""
-    get_strings(ctx.report_language)
     findings_list: list[dict[str, Any]] = []
     for f in ctx.findings:
         findings_list.append(
@@ -169,7 +168,12 @@ def generate_pdf_report(ctx: PipelineContext) -> str:
                     ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
                     ("FONTSIZE", (0, 0), (-1, -1), 8),
                     ("VALIGN", (0, 0), (-1, -1), "TOP"),
-                    ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#EEF3FB")]),
+                    (
+                        "ROWBACKGROUNDS",
+                        (0, 1),
+                        (-1, -1),
+                        [colors.white, colors.HexColor("#EEF3FB")],
+                    ),
                 ]
             )
         )
@@ -204,12 +208,7 @@ def generate_pdf_report(ctx: PipelineContext) -> str:
         textColor=colors.grey,
         spaceBefore=12,
     )
-    story.append(
-        Paragraph(
-            i18n["disclaimer"],
-            disclaimer_style,
-        )
-    )
+    story.append(Paragraph(i18n["disclaimer"], disclaimer_style))
 
     doc.build(story)
     return pdf_path
@@ -238,13 +237,15 @@ def generate_html_report(ctx: PipelineContext) -> str:
 
     limitations_items = "".join(f"<li>{html.escape(str(lim))}</li>" for lim in ctx.limitations)
 
-    # Fetch the localized table header cleanly from the catalog string dictionary
-    lang_check = i18n.get("field_key", "Field")
-    th_field = html.escape(lang_check)
+    # Fetch the localized table headers cleanly from the catalog string dictionary
+    th_field = html.escape(i18n["field_key"])
     th_value = html.escape(i18n["field_value"])
 
+    # Safely derive the true HTML document language, falling back to "en" if unsupported
+    resolved_lang = ctx.report_language if ctx.report_language in ["en", "de", "fr", "es"] else "en"
+
     html_content = f"""<!DOCTYPE html>
-<html lang="{html.escape(ctx.report_language)}">
+<html lang="{html.escape(resolved_lang)}">
 <head>
   <meta charset="UTF-8" />
   <title>{html.escape(i18n["report_title"])}</title>
