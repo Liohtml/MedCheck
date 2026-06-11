@@ -37,9 +37,11 @@ def test_analyze_model_flag_overrides_default(monkeypatch, tmp_path):
 
 
 def test_cli_version():
+    from medcheck import __version__
+
     result = runner.invoke(app, ["--version"])
     assert result.exit_code == 0
-    assert "0.1.0" in result.stdout
+    assert __version__ in result.stdout
 
 
 def test_cli_help():

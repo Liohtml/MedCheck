@@ -8,13 +8,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- Initial project scaffold with `src/medcheck` package structure
-- Core provider abstraction (`DataProvider` base class)
-- Core LLM provider abstraction (`LLMProvider` base class)
-- `pyproject.toml` with uv-managed dependencies
-- Pre-commit hooks (ruff, mypy)
-- GitHub Actions CI workflow
-- Community files: CONTRIBUTING.md, CODE_OF_CONDUCT.md, SECURITY.md, issue templates
+
+### Changed
+
+### Fixed
+
+### Security
+
+## [0.2.0] - 2026-06-11
+
+First release since the initial `v0.1.0`, bundling a sweep of security hardening,
+reliability fixes, and new capabilities across 18 merged changes.
+
+### Added
 - `medcheck providers` command to list registered data providers
 - `medcheck models` command to list LLM providers, default models, and availability
 - `abdomen` anatomy hint for vision analysis prompts
@@ -55,8 +61,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   fabricated high-confidence findings (#71)
 - README/docs/web UI model references updated from the non-existent
   `claude-opus-4-7` to `claude-opus-4-8` (#68, #69)
-
-### Fixed
 - easyRadiology `authenticate()` no longer requires a date of birth: DOB is not
   used or verified by this client, so gating on it implied a protection that did
   not exist. Authentication is based on the access code (#31)
@@ -77,4 +81,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   patient ID is logged instead
 - Portal access codes are no longer echoed into `ValueError` messages
 
-[Unreleased]: https://github.com/Liohtml/MedCheck/compare/HEAD...HEAD
+[Unreleased]: https://github.com/Liohtml/MedCheck/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/Liohtml/MedCheck/compare/v0.1.0...v0.2.0
+[0.1.0]: https://github.com/Liohtml/MedCheck/releases/tag/v0.1.0
