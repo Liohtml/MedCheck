@@ -73,30 +73,29 @@ def test_report_step_validate():
 def test_report_step_language_german(tmp_path: Path):
     ctx = _make_ctx(tmp_path)
     ctx.report_language = "de"
+    ctx.report_format = "html"  # Force HTML generation to test localized text
 
     step = ReportStep()
     result = step.run(ctx)
 
     assert Path(result.report_path).exists()
-    data = json.loads(Path(result.report_path).read_text())
+    html_content = Path(result.report_path).read_text(encoding="utf-8")
 
-    # Check that structural or dictionary labels are translated to German
-    # Note: Adjust the exact key/value check below based on what your de.json looks like!
-    # Verify that the report config correctly registers the target language metadata
-    assert data["language"] == "de"
+    # Verify that the generated HTML report contains localized German text
+    assert "Befundbericht" in html_content or "Patienteninformationen" in html_content
 
 
 def test_report_step_language_fallback(tmp_path: Path):
     ctx = _make_ctx(tmp_path)
     # Set to an unsupported language to trigger the English fallback flow
     ctx.report_language = "xyz_unsupported"
+    ctx.report_format = "html"  # Force HTML generation to test fallback text
 
     step = ReportStep()
     result = step.run(ctx)
 
     assert Path(result.report_path).exists()
-    data = json.loads(Path(result.report_path).read_text())
+    html_content = Path(result.report_path).read_text(encoding="utf-8")
 
-    # Verify it gracefully fell back to standard English keys/labels
-    assert "patient" in data
-    assert data["patient"]["name"] == "Test^Patient"
+    # Verify it gracefully fell back to standard English markup text
+    assert "Patient Information" in html_content
