@@ -64,6 +64,12 @@ jobs:
           path: dist/
       - name: Publish
         uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          # Disable PEP 740 attestations: they sign via Sigstore's Rekor, which
+          # returned HTTP 502 and failed the v0.2.1 publish. Trusted Publishing
+          # (OIDC) still authenticates the upload; this just drops the optional
+          # transparency-log attestation so a Sigstore outage can't block release.
+          attestations: false
 
   docker:
     name: Build & push Docker images

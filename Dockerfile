@@ -9,7 +9,9 @@ RUN groupadd --system --gid 10001 medcheck \
 # Install uv for fast dependency resolution
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
-COPY pyproject.toml uv.lock* ./
+# README and LICENSE are referenced by pyproject metadata (readme/license), so
+# they must be present for `uv sync` to build the medcheck package itself.
+COPY pyproject.toml uv.lock* README.md LICENSE ./
 COPY src/ src/
 COPY workflows/ workflows/
 
