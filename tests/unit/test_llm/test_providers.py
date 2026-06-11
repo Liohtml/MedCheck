@@ -15,6 +15,23 @@ _JSON = '{"overall_impression": "ok", "structures": []}'
 _IMAGES = [AnnotatedImage(series_name="s", slice_index=0, image_bytes=b"\x89PNG", description="Slice 1")]
 
 
+def test_provider_default_model_ids(monkeypatch):
+    # Defaults are current/valid and overridable via env.
+    monkeypatch.delenv("MEDCHECK_CLAUDE_MODEL", raising=False)
+    monkeypatch.delenv("MEDCHECK_OPENAI_MODEL", raising=False)
+    monkeypatch.delenv("MEDCHECK_GEMINI_MODEL", raising=False)
+    assert ClaudeProvider().model == "claude-opus-4-8"
+    assert OpenAIProvider().model == "gpt-5.5"
+    assert GeminiProvider().model == "gemini-3.5-flash"
+
+
+def test_provider_model_env_override(monkeypatch):
+    monkeypatch.setenv("MEDCHECK_CLAUDE_MODEL", "claude-test-x")
+    assert ClaudeProvider().model == "claude-test-x"
+    # Explicit constructor arg still wins over env.
+    assert ClaudeProvider(model="explicit").model == "explicit"
+
+
 def _install_fake_anthropic(monkeypatch, captured):
     module = types.ModuleType("anthropic")
 

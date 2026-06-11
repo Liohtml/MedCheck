@@ -38,10 +38,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - htmx is now vendored locally (`/static/htmx.min.js`) instead of loaded from a
   CDN, with a Subresource Integrity hash; works in air-gapped deployments
 - Docker images now run as a non-root `medcheck` user
+- LLM model IDs are now overridable via `MEDCHECK_CLAUDE_MODEL` /
+  `MEDCHECK_OPENAI_MODEL` / `MEDCHECK_GEMINI_MODEL`; default Claude model updated
+  to `claude-opus-4-8` (#68)
 
 ### Deprecated
 
 ### Removed
+
+### Fixed
+- `MEDCHECK_LLM_PROVIDER` (and the documented default) is now honoured by the
+  `analyze` command instead of silently falling back to the offline `local`
+  provider when no `--model` is given (#73)
+- Malformed/hallucinated LLM findings are now validated, type-coerced, and
+  confidence-clamped to `[0, 1]` instead of crashing the pipeline or rendering
+  fabricated high-confidence findings (#71)
+- README/docs/web UI model references updated from the non-existent
+  `claude-opus-4-7` to `claude-opus-4-8` (#68, #69)
 
 ### Fixed
 - easyRadiology `authenticate()` no longer requires a date of birth: DOB is not

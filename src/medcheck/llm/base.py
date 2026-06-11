@@ -123,11 +123,45 @@ def parse_llm_json(raw: str) -> dict[str, Any]:
     raise ValueError("No valid JSON found")
 
 
+def _coerce_structure_finding(s: dict[str, Any]) -> StructureFinding | None:
+    """Build a StructureFinding from one raw LLM dict, defensively.
+
+    The dict comes straight from an LLM response, so it may contain unexpected
+    keys, wrong types, or out-of-range values (hallucination / prompt injection).
+    We accept only known fields, coerce types, clamp confidence to [0, 1], and
+    skip entries that cannot be salvaged — rather than ``StructureFinding(**s)``
+    which would raise on an unexpected key and crash the whole pipeline.
+    """
+    if not isinstance(s, dict):
+        return None
+    finding = StructureFinding()
+    finding.name = str(s.get("name", "") or "")
+    finding.status = str(s.get("status", "") or "")
+    finding.findings = str(s.get("findings", "") or "")
+    try:
+        finding.confidence = max(0.0, min(1.0, float(s.get("confidence", 0.0))))
+    except (TypeError, ValueError):
+        finding.confidence = 0.0
+    try:
+        finding.slices_evaluated = int(s.get("slices_evaluated", 0))
+    except (TypeError, ValueError):
+        finding.slices_evaluated = 0
+    signs = s.get("secondary_signs", [])
+    finding.secondary_signs = [str(x) for x in signs] if isinstance(signs, list) else []
+    # Drop entries with no identifying content at all.
+    if not finding.name and not finding.findings:
+        return None
+    return finding
+
+
 def parse_llm_response(raw: str) -> AnalysisResult:
     """Shared response parser used by all LLM providers."""
     try:
         data = parse_llm_json(raw)
-        structures = [StructureFinding(**s) for s in data.get("structures", [])]
+        raw_structures = data.get("structures", [])
+        if not isinstance(raw_structures, list):
+            raw_structures = []
+        structures = [f for f in (_coerce_structure_finding(s) for s in raw_structures) if f is not None]
         return AnalysisResult(
             structures=structures,
             overall_impression=data.get("overall_impression", ""),

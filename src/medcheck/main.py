@@ -125,9 +125,11 @@ def analyze(
     ctx.report_format = report
     ctx.report_language = lang
     ctx.output_dir = output
-    ctx.llm_provider = model
+    # Honour --model, else fall back to the configured default (MEDCHECK_LLM_PROVIDER).
+    settings = Settings()
+    ctx.llm_provider = model or settings.default_llm_provider
     # Consent to external LLM transmission via flag or MEDCHECK_ALLOW_EXTERNAL_LLM env.
-    ctx.allow_external_llm = allow_cloud_llm or Settings().allow_external_llm
+    ctx.allow_external_llm = allow_cloud_llm or settings.allow_external_llm
 
     # Clinical context
     if symptoms or trauma or diagnosis:
