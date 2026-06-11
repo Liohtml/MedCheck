@@ -8,16 +8,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- `docs/intended-use.md` — intended use, dual-track positioning, and the explicit
-  do/don't boundary that keeps MedCheck on the non-device side of FDA/EU MDR rules
-- `docs/model-card.md` — system model card documenting components, limitations,
-  and known risks (hallucination, no clinical validation, PHI handling)
 
 ### Changed
 
 ### Fixed
 
 ### Security
+
+## [0.2.1] - 2026-06-11
+
+First published release. (The `0.2.0` tag failed to publish because the release
+workflow referenced a non-existent `setup-uv@v8`; nothing was uploaded to PyPI or
+GHCR under `0.2.0`. This release supersedes it and adds the changes below.)
+
+### Added
+- Internationalized reports: German, French, and Spanish report localization via
+  per-language JSON catalogs in `medcheck/i18n/` with a cached loader and English
+  fallback; PDF/HTML reports use localized headings, labels, and disclaimer (#16)
+- `docs/intended-use.md` — intended use, dual-track positioning, and the explicit
+  do/don't boundary that keeps MedCheck on the non-device side of FDA/EU MDR rules
+- `docs/model-card.md` — system model card documenting components, limitations,
+  and known risks (hallucination, no clinical validation, PHI handling)
+
+### Fixed
+- Release workflow pinned `setup-uv` to the non-existent `@v8`, aborting the build
+  before any publish step; corrected to `@v7` to match `ci.yml`
 
 ## [0.2.0] - 2026-06-11
 
@@ -85,6 +100,7 @@ reliability fixes, and new capabilities across 18 merged changes.
   patient ID is logged instead
 - Portal access codes are no longer echoed into `ValueError` messages
 
-[Unreleased]: https://github.com/Liohtml/MedCheck/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/Liohtml/MedCheck/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/Liohtml/MedCheck/compare/v0.1.0...v0.2.1
 [0.2.0]: https://github.com/Liohtml/MedCheck/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/Liohtml/MedCheck/releases/tag/v0.1.0
