@@ -202,6 +202,8 @@ medcheck models      # list LLM providers, default models, and availability
 | Data providers & plugins | [docs/providers.md](docs/providers.md) |
 | Workflow engine reference | [docs/workflows.md](docs/workflows.md) |
 | Supported models | [docs/models.md](docs/models.md) |
+| Intended use & positioning | [docs/intended-use.md](docs/intended-use.md) |
+| Model card (limitations & risks) | [docs/model-card.md](docs/model-card.md) |
 
 ---
 
@@ -233,7 +235,9 @@ MedCheck builds on the shoulders of excellent open-source work:
 
 > **Disclaimer**
 >
-> **MedCheck is NOT a medical device and has NOT been cleared or approved by any regulatory authority (FDA, CE, or otherwise). It is intended solely as a research and educational tool. All outputs must be reviewed and verified by a qualified radiologist or licensed medical professional before use in any clinical decision-making context. Do not use MedCheck as a substitute for professional medical advice, diagnosis, or treatment.**
+> **MedCheck is NOT a medical device and has NOT been cleared or approved by any regulatory authority (FDA, CE/EU MDR, or otherwise). It is intended solely as a research and educational tool. It must NOT be used to diagnose, screen for, or rule out any condition. All outputs must be reviewed and verified by a qualified radiologist or licensed medical professional before use in any clinical decision-making context. Do not use MedCheck as a substitute for professional medical advice, diagnosis, or treatment.**
+>
+> See **[Intended Use & Positioning](docs/intended-use.md)** for the scope and the do/don't boundary, and the **[Model Card](docs/model-card.md)** for limitations and known risks.
 
 ---
 

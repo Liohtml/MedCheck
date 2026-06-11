@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `docs/intended-use.md` — intended use, dual-track positioning, and the explicit
+  do/don't boundary that keeps MedCheck on the non-device side of FDA/EU MDR rules
+- `docs/model-card.md` — system model card documenting components, limitations,
+  and known risks (hallucination, no clinical validation, PHI handling)
 
 ### Changed
 
