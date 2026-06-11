@@ -68,3 +68,46 @@ def test_report_step_validate():
     step = ReportStep()
     # Should still work even without findings (generates empty report)
     assert step.validate(ctx) is True
+
+
+def test_report_step_language_german(tmp_path: Path):
+    ctx = _make_ctx(tmp_path)
+    ctx.report_language = "de"
+    ctx.report_format = "html"  # Force HTML generation to test localized text
+
+    step = ReportStep()
+    result = step.run(ctx)
+
+    assert Path(result.report_path).exists()
+    html_content = Path(result.report_path).read_text(encoding="utf-8")
+
+    # Verify that the generated HTML report contains localized German text
+    assert "Patienteninformationen" in html_content
+
+
+def test_report_step_language_fallback(tmp_path: Path):
+    ctx = _make_ctx(tmp_path)
+    # Set to an unsupported language to trigger the English fallback flow
+    ctx.report_language = "xyz_unsupported"
+    ctx.report_format = "html"  # Force HTML generation to test fallback text
+
+    step = ReportStep()
+    result = step.run(ctx)
+
+    assert Path(result.report_path).exists()
+    html_content = Path(result.report_path).read_text(encoding="utf-8")
+
+    # Verify it gracefully fell back to standard English markup text
+    assert "Patient Information" in html_content
+
+
+def test_report_step_pdf(tmp_path: Path):
+    ctx = _make_ctx(tmp_path)
+    ctx.report_format = "pdf"
+    ctx.report_language = "de"  # Test localized PDF generation
+
+    step = ReportStep()
+    result = step.run(ctx)
+
+    assert result.report_path.endswith(".pdf")
+    assert Path(result.report_path).exists()
