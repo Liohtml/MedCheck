@@ -242,7 +242,9 @@ def generate_html_report(ctx: PipelineContext) -> str:
     th_value = html.escape(i18n["field_value"])
 
     # Safely derive the true HTML document language, falling back to "en" if unsupported
-    resolved_lang = ctx.report_language if ctx.report_language in ["en", "de", "fr", "es"] else "en"
+    # Safely normalize the language string to prevent case-mismatches (e.g., "DE")
+    _lang = (ctx.report_language or "en").lower().strip()
+    resolved_lang = _lang if _lang in {"en", "de", "fr", "es"} else "en"
 
     html_content = f"""<!DOCTYPE html>
 <html lang="{html.escape(resolved_lang)}">

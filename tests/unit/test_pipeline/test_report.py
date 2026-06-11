@@ -82,7 +82,7 @@ def test_report_step_language_german(tmp_path: Path):
     html_content = Path(result.report_path).read_text(encoding="utf-8")
 
     # Verify that the generated HTML report contains localized German text
-    assert "Befundbericht" in html_content or "Patienteninformationen" in html_content
+    assert "Patienteninformationen" in html_content
 
 
 def test_report_step_language_fallback(tmp_path: Path):
