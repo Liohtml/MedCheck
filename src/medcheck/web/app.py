@@ -29,7 +29,9 @@ class AnalyzeRequest(BaseModel):
     provider: str | None = Field(default=None, description="Data provider name (auto-detected if omitted)")
     anatomy: str | None = Field(default=None, description="Anatomy region hint, e.g. 'knee'")
     report_format: str = Field(default="json", pattern="^(json|pdf|html)$")
-    language: str = Field(default="en", pattern="^(en|de)$")
+    # Keep in sync with the CLI (_REPORT_LANGUAGES) and the i18n catalogs
+    # (medcheck/i18n/*.json) so fr/es requests aren't rejected with 422.
+    language: str = Field(default="en", pattern="^(en|de|fr|es)$")
 
 
 def _make_api_key_guard(expected_key: str | None) -> Any:

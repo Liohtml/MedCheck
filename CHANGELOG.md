@@ -21,7 +21,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - `medcheck analyze` now validates `--report` and `--lang`: an unknown value fails
-  fast with a clear error instead of silently producing a JSON report (#99)
+  fast with a clear error instead of silently producing a JSON report (#99). The
+  `POST /api/analyze` `language` field now also accepts `fr`/`es`, matching the CLI
+  and the shipped i18n catalogs (previously only `en`/`de` passed validation)
 
 ### Security
 - i18n `_load_catalog()` now constrains the language code to a safe pattern before

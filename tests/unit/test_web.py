@@ -49,6 +49,17 @@ def test_analyze_validates_request_body():
     assert client.post("/api/analyze", json={}).status_code == 422
     # Invalid report_format.
     assert client.post("/api/analyze", json={"source": "x", "report_format": "docx"}).status_code == 422
+    # Unsupported language is rejected.
+    assert client.post("/api/analyze", json={"source": "x", "language": "klingon"}).status_code == 422
+
+
+def test_analyze_accepts_all_supported_languages():
+    # Web schema must accept the same locales the CLI and i18n catalogs support;
+    # a valid fr/es body should reach the (501) stub, not be rejected with 422.
+    client = TestClient(create_app(Settings(api_key=None)))
+    for lang in ("en", "de", "fr", "es"):
+        resp = client.post("/api/analyze", json={"source": "x", "language": lang})
+        assert resp.status_code == 501, lang
 
 
 def test_health_open_even_with_api_key():
