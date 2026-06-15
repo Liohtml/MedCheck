@@ -10,10 +10,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 ### Changed
+- `medcheck serve` now reads `MEDCHECK_HOST` / `MEDCHECK_PORT` (via Typer `envvar`)
+  when the corresponding flag is omitted, so the Docker image's `ENV MEDCHECK_HOST=0.0.0.0`
+  actually takes effect and the container is reachable from the host (#105)
+- `POST /api/analyze` now returns `501 Not Implemented` instead of `200 OK` for the
+  not-yet-wired pipeline stub, so clients and health checks can detect it (#96)
+- `load_anatomy_instructions` uses a bounded `@lru_cache(maxsize=64)` instead of an
+  unbounded `@cache`, preventing memory growth from arbitrary request-supplied
+  `anatomy` values (#102)
 
 ### Fixed
+- `medcheck analyze` now validates `--report` and `--lang`: an unknown value fails
+  fast with a clear error instead of silently producing a JSON report (#99)
 
 ### Security
+- i18n `_load_catalog()` now constrains the language code to a safe pattern before
+  building a file path, so an unvalidated CLI `--lang` value can't be interpolated
+  into a path outside the i18n directory (defense-in-depth) (#106)
 
 ## [0.2.1] - 2026-06-11
 

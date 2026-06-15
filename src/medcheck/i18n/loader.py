@@ -3,16 +3,25 @@
 from __future__ import annotations
 
 import json
+import re
 from functools import lru_cache
 from pathlib import Path
 
 # Locate our current folder path dynamically
 I18N_DIR = Path(__file__).parent
 
+# Language codes are short alphabetic tags (e.g. "en", "de", "pt-br"). Constrain the
+# value before building a path so a hostile or malformed `lang` (e.g. "../../etc/passwd")
+# can never be interpolated into the filename — defense-in-depth, since this loader is
+# reachable from the CLI with an unvalidated --lang value.
+_LANG_RE = re.compile(r"^[a-z]{2,3}(?:-[a-z]{2,4})?$")
+
 
 @lru_cache(maxsize=4)
 def _load_catalog(lang: str) -> dict[str, str]:
     """Load a JSON catalog from disk with internal caching."""
+    if not _LANG_RE.match(lang):
+        return {}
     file_path = I18N_DIR / f"{lang}.json"
     if not file_path.is_file():
         return {}

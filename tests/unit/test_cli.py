@@ -36,6 +36,39 @@ def test_analyze_model_flag_overrides_default(monkeypatch, tmp_path):
     assert ctx.llm_provider == "gemini"
 
 
+def test_analyze_rejects_invalid_report_format(monkeypatch, tmp_path):
+    # #99: an unknown --report value must fail fast, not silently fall back to JSON.
+    result, ctx = _capture_analyze_context(monkeypatch, ["analyze", str(tmp_path), "--report", "xml"])
+    assert result.exit_code != 0
+    assert ctx is None
+
+
+def test_analyze_rejects_invalid_language(monkeypatch, tmp_path):
+    # #99: an unsupported --lang value must fail fast with a clear error.
+    result, ctx = _capture_analyze_context(monkeypatch, ["analyze", str(tmp_path), "--lang", "klingon"])
+    assert result.exit_code != 0
+    assert ctx is None
+
+
+def test_serve_honors_host_port_env(monkeypatch):
+    # #105: Docker sets MEDCHECK_HOST/PORT; `serve` (no flags) must bind to them
+    # instead of the hardcoded 127.0.0.1:8080, or the container is unreachable.
+    monkeypatch.setenv("MEDCHECK_HOST", "0.0.0.0")
+    monkeypatch.setenv("MEDCHECK_PORT", "9000")
+    monkeypatch.setenv("MEDCHECK_API_KEY", "k")  # silence the open-bind warning path
+    captured = {}
+
+    def fake_run(_app_obj, host, port):
+        # Signature mirrors uvicorn.run(app, host=, port=); we only assert host/port.
+        captured["host"] = host
+        captured["port"] = port
+
+    with patch("uvicorn.run", side_effect=fake_run):
+        result = runner.invoke(app, ["serve"])
+    assert result.exit_code == 0
+    assert captured == {"host": "0.0.0.0", "port": 9000}
+
+
 def test_cli_version():
     from medcheck import __version__
 

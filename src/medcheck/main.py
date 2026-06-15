@@ -17,6 +17,24 @@ app = typer.Typer(
 )
 console = Console()
 
+# Accepted report formats and languages. Kept in sync with ReportStep (report.py)
+# and the i18n catalogs (medcheck/i18n/*.json) so an invalid CLI value fails fast
+# instead of silently falling through to the JSON branch.
+_REPORT_FORMATS = ("pdf", "html", "json")
+_REPORT_LANGUAGES = ("en", "de", "fr", "es")
+
+
+def _validate_choice(value: str, allowed: tuple[str, ...], param_hint: str, label: str) -> str:
+    """Normalize *value* to lowercase and reject it (with a clear error) if not in *allowed*."""
+    normalized = value.lower()
+    if normalized not in allowed:
+        raise typer.BadParameter(
+            f"'{value}' is not a valid {label}. Choose from: {', '.join(allowed)}.",
+            param_hint=param_hint,
+        )
+    return normalized
+
+
 _DEFAULT_STEPS = ["ingest", "preprocess", "ml_analysis", "report"]
 
 
@@ -97,7 +115,7 @@ def analyze(
     steps: str | None = typer.Option(None, "--steps", help="Comma-separated pipeline steps"),
     workflow: str | None = typer.Option(None, "--workflow", "-w", help="Path to workflow YAML"),
     report: str = typer.Option("pdf", "--report", "-r", help="Report format: pdf, html, json"),
-    lang: str = typer.Option("en", "--lang", "-l", help="Report language: en, de"),
+    lang: str = typer.Option("en", "--lang", "-l", help="Report language: en, de, fr, es"),
     output: str = typer.Option("./output", "--output", "-o", help="Output directory"),
     interactive: bool = typer.Option(False, "--interactive", "-i", help="Interactive mode"),
     allow_cloud_llm: bool = typer.Option(
@@ -109,6 +127,9 @@ def analyze(
     """Analyze medical images from DICOM files or radiology portals."""
     from medcheck.core.config import Settings
     from medcheck.core.context import ClinicalContext, PipelineContext
+
+    report = _validate_choice(report, _REPORT_FORMATS, "--report", "report format")
+    lang = _validate_choice(lang, _REPORT_LANGUAGES, "--lang", "language")
 
     console.print(f"[bold blue]MedCheck v{__version__}[/bold blue]")
     console.print(f"Source: {source}")
@@ -169,8 +190,18 @@ def analyze(
 
 @app.command()
 def serve(
-    host: str = typer.Option("127.0.0.1", "--host", help="Bind host (use 0.0.0.0 to expose on the network)"),
-    port: int = typer.Option(8080, "--port", help="Bind port"),
+    host: str = typer.Option(
+        "127.0.0.1",
+        "--host",
+        envvar="MEDCHECK_HOST",
+        help="Bind host (use 0.0.0.0 to expose on the network). Reads MEDCHECK_HOST if unset.",
+    ),
+    port: int = typer.Option(
+        8080,
+        "--port",
+        envvar="MEDCHECK_PORT",
+        help="Bind port. Reads MEDCHECK_PORT if unset.",
+    ),
 ) -> None:
     """Start the MedCheck web UI server."""
     import os

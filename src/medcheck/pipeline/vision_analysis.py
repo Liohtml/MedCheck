@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import io
 import re
-from functools import cache
+from functools import lru_cache
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -69,7 +69,10 @@ _ANATOMY_TEMPLATE_DIR = Path(__file__).resolve().parents[1] / "prompts" / "anato
 _SLUG_RE = re.compile(r"[a-z0-9_-]+")
 
 
-@cache
+# Bounded cache: the request body (web API) can supply arbitrary `anatomy` strings,
+# so an unbounded `@cache` would grow without limit. The set of real regions is small,
+# so a modest maxsize covers legitimate use while capping memory.
+@lru_cache(maxsize=64)
 def load_anatomy_instructions(anatomy: str) -> str:
     """Return anatomy-specific instructions for *anatomy*.
 

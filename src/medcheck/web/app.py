@@ -73,8 +73,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @app.post("/api/analyze")
     def analyze(req: AnalyzeRequest, _: None = Depends(require_api_key)) -> dict[str, Any]:
-        # Pipeline execution is not wired up yet; the validated request is echoed
-        # back so clients can confirm parsing/auth before the feature lands.
-        return {"status": "not_implemented", "source": req.source}
+        # Pipeline execution is not wired up yet. Return 501 (not 200) so clients,
+        # health checks, and CI can detect that no analysis was performed; the
+        # validated source is echoed in the detail so callers can confirm parsing/auth.
+        raise HTTPException(
+            status_code=status.HTTP_501_NOT_IMPLEMENTED,
+            detail=f"Pipeline execution is not implemented yet (source={req.source!r}).",
+        )
 
     return app
