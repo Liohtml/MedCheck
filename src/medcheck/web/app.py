@@ -29,7 +29,9 @@ class AnalyzeRequest(BaseModel):
     provider: str | None = Field(default=None, description="Data provider name (auto-detected if omitted)")
     anatomy: str | None = Field(default=None, description="Anatomy region hint, e.g. 'knee'")
     report_format: str = Field(default="json", pattern="^(json|pdf|html)$")
-    language: str = Field(default="en", pattern="^(en|de)$")
+    # Keep in sync with the CLI (_REPORT_LANGUAGES) and the i18n catalogs
+    # (medcheck/i18n/*.json) so fr/es requests aren't rejected with 422.
+    language: str = Field(default="en", pattern="^(en|de|fr|es)$")
 
 
 def _make_api_key_guard(expected_key: str | None) -> Any:
@@ -73,8 +75,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @app.post("/api/analyze")
     def analyze(req: AnalyzeRequest, _: None = Depends(require_api_key)) -> dict[str, Any]:
-        # Pipeline execution is not wired up yet; the validated request is echoed
-        # back so clients can confirm parsing/auth before the feature lands.
-        return {"status": "not_implemented", "source": req.source}
+        # Pipeline execution is not wired up yet. Return 501 (not 200) so clients,
+        # health checks, and CI can detect that no analysis was performed; the
+        # validated source is echoed in the detail so callers can confirm parsing/auth.
+        raise HTTPException(
+            status_code=status.HTTP_501_NOT_IMPLEMENTED,
+            detail=f"Pipeline execution is not implemented yet (source={req.source!r}).",
+        )
 
     return app

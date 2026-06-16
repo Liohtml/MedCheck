@@ -25,10 +25,11 @@ _VALID_BODY = {"source": "/data/scans"}
 
 def test_analyze_open_when_no_api_key_configured():
     # Back-compat: no MEDCHECK_API_KEY -> endpoint stays open (localhost default).
+    # The pipeline is not wired up yet, so it must report 501 (not a 200 "success").
     client = TestClient(create_app(Settings(api_key=None)))
     resp = client.post("/api/analyze", json=_VALID_BODY)
-    assert resp.status_code == 200
-    assert resp.json()["status"] == "not_implemented"
+    assert resp.status_code == 501
+    assert "not implemented" in resp.json()["detail"].lower()
 
 
 def test_analyze_requires_key_when_configured():
@@ -37,10 +38,9 @@ def test_analyze_requires_key_when_configured():
     assert client.post("/api/analyze", json=_VALID_BODY).status_code == 401
     # Wrong key.
     assert client.post("/api/analyze", json=_VALID_BODY, headers={"X-API-Key": "nope"}).status_code == 401
-    # Correct key.
+    # Correct key -> auth passes, endpoint reports the stub as 501 (not yet implemented).
     ok = client.post("/api/analyze", json=_VALID_BODY, headers={"X-API-Key": "s3cret"})
-    assert ok.status_code == 200
-    assert ok.json()["status"] == "not_implemented"
+    assert ok.status_code == 501
 
 
 def test_analyze_validates_request_body():
@@ -49,6 +49,17 @@ def test_analyze_validates_request_body():
     assert client.post("/api/analyze", json={}).status_code == 422
     # Invalid report_format.
     assert client.post("/api/analyze", json={"source": "x", "report_format": "docx"}).status_code == 422
+    # Unsupported language is rejected.
+    assert client.post("/api/analyze", json={"source": "x", "language": "klingon"}).status_code == 422
+
+
+def test_analyze_accepts_all_supported_languages():
+    # Web schema must accept the same locales the CLI and i18n catalogs support;
+    # a valid fr/es body should reach the (501) stub, not be rejected with 422.
+    client = TestClient(create_app(Settings(api_key=None)))
+    for lang in ("en", "de", "fr", "es"):
+        resp = client.post("/api/analyze", json={"source": "x", "language": lang})
+        assert resp.status_code == 501, lang
 
 
 def test_health_open_even_with_api_key():

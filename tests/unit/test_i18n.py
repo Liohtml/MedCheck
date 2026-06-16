@@ -13,3 +13,10 @@ def test_i18n_loader_resolves_languages():
     # Test fallback mechanism for None configuration
     none_strings = get_strings(None)
     assert none_strings["report_title"] == "MedCheck Radiology Report"
+
+
+def test_i18n_rejects_path_traversal_lang():
+    # A traversal-style language value must not be interpolated into a path; it
+    # falls back to English instead of attempting to read outside the i18n dir.
+    strings = get_strings("../../../../etc/passwd")
+    assert strings["report_title"] == "MedCheck Radiology Report"
