@@ -116,7 +116,7 @@ def analyze(
     workflow: str | None = typer.Option(None, "--workflow", "-w", help="Path to workflow YAML"),
     report: str = typer.Option("pdf", "--report", "-r", help="Report format: pdf, html, json"),
     lang: str = typer.Option("en", "--lang", "-l", help="Report language: en, de, fr, es"),
-    output: str = typer.Option("./output", "--output", "-o", help="Output directory"),
+    output: str = typer.Option("./output", "--output", "-o", help="Output directory (reports may contain patient PHI)"),
     interactive: bool = typer.Option(False, "--interactive", "-i", help="Interactive mode"),
     allow_cloud_llm: bool = typer.Option(
         False,

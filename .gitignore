@@ -58,6 +58,9 @@ MANIFEST
 .DS_Store
 Thumbs.db
 
+# Report output (may contain patient PHI — never commit)
+output/
+
 # Logs
 *.log
 logs/

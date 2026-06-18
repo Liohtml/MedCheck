@@ -83,3 +83,35 @@ def test_htmx_is_vendored_locally():
     assert 'integrity="sha384-' in page
     assert 'crossorigin="anonymous"' in page
     assert "unpkg.com" not in page
+
+
+# --- Security headers (issue #109) ---
+
+_EXPECTED_SECURITY_HEADERS = {
+    "X-Frame-Options": "DENY",
+    "X-Content-Type-Options": "nosniff",
+    "Referrer-Policy": "no-referrer",
+}
+
+
+def test_security_headers_on_health():
+    """Every response must carry standard security headers."""
+    client = TestClient(create_app())
+    resp = client.get("/health")
+    for header, expected in _EXPECTED_SECURITY_HEADERS.items():
+        assert resp.headers.get(header) == expected, f"Missing or wrong {header}"
+
+
+def test_security_headers_on_homepage():
+    client = TestClient(create_app())
+    resp = client.get("/")
+    for header, expected in _EXPECTED_SECURITY_HEADERS.items():
+        assert resp.headers.get(header) == expected, f"Missing or wrong {header}"
+
+
+def test_content_security_policy_present():
+    client = TestClient(create_app())
+    resp = client.get("/health")
+    csp = resp.headers.get("Content-Security-Policy", "")
+    assert "default-src 'self'" in csp
+    assert "script-src 'self'" in csp
