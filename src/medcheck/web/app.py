@@ -69,9 +69,12 @@ class _SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["Referrer-Policy"] = "no-referrer"
+        # 'unsafe-inline' in script-src is required because index.html uses
+        # inline event handlers (onclick=, onchange=) and an inline <script> block.
+        # TODO: move inline JS to /static/app.js and remove 'unsafe-inline'.
         response.headers["Content-Security-Policy"] = (
-            "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; "
-            "frame-ancestors 'none';"
+            "default-src 'self'; script-src 'self' 'unsafe-inline'; "
+            "style-src 'self' 'unsafe-inline'; frame-ancestors 'none';"
         )
         return response
 

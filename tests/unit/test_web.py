@@ -92,8 +92,8 @@ _EXPECTED_SECURITY_HEADERS = {
     "X-Content-Type-Options": "nosniff",
     "Referrer-Policy": "no-referrer",
     "Content-Security-Policy": (
-        "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; "
-        "frame-ancestors 'none';"
+        "default-src 'self'; script-src 'self' 'unsafe-inline'; "
+        "style-src 'self' 'unsafe-inline'; frame-ancestors 'none';"
     ),
 }
 
