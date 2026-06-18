@@ -70,7 +70,8 @@ class _SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["Referrer-Policy"] = "no-referrer"
         response.headers["Content-Security-Policy"] = (
-            "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline';"
+            "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; "
+            "frame-ancestors 'none';"
         )
         return response
 

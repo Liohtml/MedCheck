@@ -91,6 +91,10 @@ _EXPECTED_SECURITY_HEADERS = {
     "X-Frame-Options": "DENY",
     "X-Content-Type-Options": "nosniff",
     "Referrer-Policy": "no-referrer",
+    "Content-Security-Policy": (
+        "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; "
+        "frame-ancestors 'none';"
+    ),
 }
 
 
@@ -109,9 +113,9 @@ def test_security_headers_on_homepage():
         assert resp.headers.get(header) == expected, f"Missing or wrong {header}"
 
 
-def test_content_security_policy_present():
+def test_content_security_policy_frame_ancestors():
+    """CSP must include frame-ancestors to match X-Frame-Options DENY."""
     client = TestClient(create_app())
     resp = client.get("/health")
     csp = resp.headers.get("Content-Security-Policy", "")
-    assert "default-src 'self'" in csp
-    assert "script-src 'self'" in csp
+    assert "frame-ancestors 'none'" in csp
