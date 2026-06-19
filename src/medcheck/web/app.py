@@ -12,6 +12,7 @@ from fastapi.security import APIKeyHeader
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from medcheck import __version__
 from medcheck.core.config import Settings
@@ -55,10 +56,34 @@ def _make_api_key_guard(expected_key: str | None) -> Any:
     return guard
 
 
+class _SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    """Add standard HTTP security headers to every response.
+
+    Defense-in-depth for a web app that handles patient-derived medical
+    imaging data (PHI).  Particularly important when the server is exposed
+    on the network via ``MEDCHECK_HOST=0.0.0.0``.
+    """
+
+    async def dispatch(self, request: Request, call_next: Any) -> Any:
+        response = await call_next(request)
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["Referrer-Policy"] = "no-referrer"
+        # 'unsafe-inline' in script-src is required because index.html uses
+        # inline event handlers (onclick=, onchange=) and an inline <script> block.
+        # TODO: move inline JS to /static/app.js and remove 'unsafe-inline'.
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'self'; script-src 'self' 'unsafe-inline'; "
+            "style-src 'self' 'unsafe-inline'; frame-ancestors 'none';"
+        )
+        return response
+
+
 def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or Settings()
     app = FastAPI(title="MedCheck", version=__version__)
     require_api_key = _make_api_key_guard(settings.api_key)
+    app.add_middleware(_SecurityHeadersMiddleware)
 
     if STATIC_DIR.exists():
         app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
