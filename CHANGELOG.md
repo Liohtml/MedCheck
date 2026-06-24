@@ -8,8 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `MEDCHECK_MAX_VISION_IMAGES` (default 12) caps the total slice images sent to the
+  LLM per analysis, and `MEDCHECK_MAX_DOWNLOAD_BYTES` (default 2 GiB) caps the
+  easyRadiology exam-ZIP download size
 
 ### Changed
+- Vision analysis now bounds the total number of slice images sent to the LLM
+  across all series (previously 5 per series with no global cap), limiting cost,
+  latency, and patient-data egress (#115)
+- ML feature-extractor singleton is now initialized under a lock (double-checked
+  locking), so concurrent requests under the web server can't build it twice (#94)
 - `medcheck serve` now reads `MEDCHECK_HOST` / `MEDCHECK_PORT` (via Typer `envvar`)
   when the corresponding flag is omitted, so the Docker image's `ENV MEDCHECK_HOST=0.0.0.0`
   actually takes effect and the container is reachable from the host (#105)
@@ -20,6 +28,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `anatomy` values (#102)
 
 ### Fixed
+- Cap `numpy<2.5` so the dependency stays compatible with the project's declared
+  Python floor (`>=3.10`); numpy 2.5 requires Python 3.12 and its type stub uses
+  3.12-only syntax that broke `mypy --python-version 3.10` in CI
 - `medcheck analyze` now validates `--report` and `--lang`: an unknown value fails
   fast with a clear error instead of silently producing a JSON report (#99). The
   `POST /api/analyze` `language` field now also accepts `fr`/`es`, matching the CLI
@@ -29,6 +40,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - i18n `_load_catalog()` now constrains the language code to a safe pattern before
   building a file path, so an unvalidated CLI `--lang` value can't be interpolated
   into a path outside the i18n directory (defense-in-depth) (#106)
+- easyRadiology exam-ZIP downloads are now size-capped (Content-Length check plus a
+  streamed-byte limit), preventing a tampered/compromised portal response from
+  exhausting disk via an unbounded body (#74)
 
 ## [0.2.1] - 2026-06-11
 

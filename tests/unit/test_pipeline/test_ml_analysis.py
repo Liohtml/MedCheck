@@ -1,8 +1,41 @@
+import threading
+import time
+from unittest.mock import patch
+
 import numpy as np
 import pytest
 
+import medcheck.pipeline.ml_analysis as ml_analysis
 from medcheck.core.context import PipelineContext
 from medcheck.pipeline.ml_analysis import MLAnalysisStep, analyze_signal_intensity, compute_anomaly_scores
+
+
+def test_get_feature_extractor_builds_once_under_concurrency():
+    # Concurrent first-time access must build the singleton exactly once (no race).
+    call_count = 0
+
+    def slow_build():
+        nonlocal call_count
+        call_count += 1
+        time.sleep(0.05)  # widen the race window
+        return object()
+
+    with (
+        patch.object(ml_analysis, "_feature_extractor", None),
+        patch.object(ml_analysis, "_build_feature_extractor", side_effect=slow_build),
+    ):
+        results = []
+        threads = [
+            threading.Thread(target=lambda: results.append(ml_analysis._get_feature_extractor())) for _ in range(8)
+        ]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+    assert call_count == 1
+    # All callers get the same instance.
+    assert len({id(r) for r in results}) == 1
 
 
 def test_compute_anomaly_scores():

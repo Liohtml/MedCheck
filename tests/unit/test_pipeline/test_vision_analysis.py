@@ -6,7 +6,9 @@ import pytest
 from medcheck.core.context import ClinicalContext, PipelineContext, StructureFinding
 from medcheck.llm.base import AnalysisResult
 from medcheck.pipeline.vision_analysis import (
+    _MAX_VISION_IMAGES,
     VisionAnalysisStep,
+    _collect_images,
     build_prompt,
     load_anatomy_instructions,
 )
@@ -118,6 +120,58 @@ def test_vision_step_populates_findings():
     assert len(result.findings) == 1
     assert result.findings[0].name == "ACL"
     assert result.overall_impression == "Normal knee"
+
+
+def test_collect_images_caps_total_across_many_series():
+    # 10 series x 5 slices each = 50 candidate images; the global cap must hold.
+    ctx = PipelineContext()
+    ctx.volumes = {f"series_{i}": np.random.rand(5, 16, 16).astype(np.float32) for i in range(10)}
+    images = _collect_images(ctx)
+    assert len(images) == _MAX_VISION_IMAGES
+
+
+def test_collect_images_under_cap_returns_all():
+    ctx = PipelineContext()
+    ctx.volumes = {"only": np.random.rand(3, 16, 16).astype(np.float32)}
+    ctx.top_slices = {"only": [0, 1, 2]}
+    images = _collect_images(ctx)
+    assert len(images) == 3
+
+
+def test_collect_images_respects_explicit_limit():
+    ctx = PipelineContext()
+    ctx.volumes = {"only": np.random.rand(8, 16, 16).astype(np.float32)}
+    assert _collect_images(ctx, max_images=2) == _collect_images(ctx, max_images=2)
+    assert len(_collect_images(ctx, max_images=2)) == 2
+    assert _collect_images(ctx, max_images=0) == []
+
+
+def test_vision_step_run_caps_images_sent_to_provider():
+    # The provider must never receive more than the global cap, even with many series.
+    ctx = PipelineContext()
+    ctx.volumes = {f"s{i}": np.random.rand(5, 16, 16).astype(np.float32) for i in range(6)}
+    ctx.detected_anatomy = "knee"
+    ctx.allow_external_llm = True
+
+    mock_result = AnalysisResult(
+        structures=[],
+        overall_impression="",
+        clinical_correlation="",
+        limitations=[],
+        raw_response="{}",
+    )
+    mock_provider = MagicMock()
+    mock_provider.analyze_images.return_value = mock_result
+    mock_provider.name = "mock"
+    mock_router = MagicMock()
+    mock_router.select.return_value = mock_provider
+
+    step = VisionAnalysisStep()
+    with patch.object(step, "_get_router", return_value=mock_router):
+        step.run(ctx)
+
+    sent_images = mock_provider.analyze_images.call_args.args[0]
+    assert len(sent_images) <= _MAX_VISION_IMAGES
 
 
 def _consent_test_context():

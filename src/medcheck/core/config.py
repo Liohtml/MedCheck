@@ -24,6 +24,14 @@ class Settings:
     allow_external_llm: bool = field(default_factory=lambda: _env_flag("MEDCHECK_ALLOW_EXTERNAL_LLM"))
     default_llm_provider: str = field(default_factory=lambda: os.environ.get("MEDCHECK_LLM_PROVIDER", "claude"))
     default_language: str = field(default_factory=lambda: os.environ.get("MEDCHECK_LANGUAGE", "en"))
+    # Max slice images sent to the LLM per analysis. Bounds cost/latency and the
+    # volume of patient-derived data leaving the host (MEDCHECK_MAX_VISION_IMAGES).
+    max_vision_images: int = field(default_factory=lambda: int(os.environ.get("MEDCHECK_MAX_VISION_IMAGES", "12")))
+    # Hard cap on a portal exam-ZIP download, in bytes; guards against an oversized
+    # or hostile response exhausting disk (MEDCHECK_MAX_DOWNLOAD_BYTES, default 2 GiB).
+    max_download_bytes: int = field(
+        default_factory=lambda: int(os.environ.get("MEDCHECK_MAX_DOWNLOAD_BYTES", str(2 * 1024 * 1024 * 1024)))
+    )
     anthropic_api_key: str | None = field(default_factory=lambda: os.environ.get("ANTHROPIC_API_KEY"))
     openai_api_key: str | None = field(default_factory=lambda: os.environ.get("OPENAI_API_KEY"))
     google_api_key: str | None = field(default_factory=lambda: os.environ.get("GOOGLE_API_KEY"))

@@ -13,8 +13,9 @@ import hashlib
 import json
 import tempfile
 from base64 import b64decode
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Any, ClassVar
+from typing import Any, BinaryIO, ClassVar
 from urllib.parse import urlparse
 
 import httpx
@@ -24,6 +25,7 @@ import httpx
 # apart, so the suppression is required even though the library is the safe one.
 from Crypto.Cipher import AES  # nosec B413
 
+from medcheck.core.config import Settings
 from medcheck.core.context import DicomSeries
 from medcheck.providers.base import DataProvider
 from medcheck.providers.local import LocalProvider
@@ -54,6 +56,44 @@ def _validate_download_url(url: str) -> None:
     host = (parsed.hostname or "").lower()
     if host not in _ALLOWED_DOWNLOAD_HOSTS and not host.endswith(_ALLOWED_DOWNLOAD_SUFFIXES):
         raise ValueError(f"Untrusted download host: {host!r}")
+
+
+# Default hard cap on the exam ZIP download. A tampered/compromised portal response
+# could otherwise stream an unbounded body and exhaust disk. 2 GiB is comfortably
+# above any real exam while still bounding the damage. Overridable per-deployment
+# via Settings.max_download_bytes (MEDCHECK_MAX_DOWNLOAD_BYTES).
+_MAX_DOWNLOAD_BYTES: int = 2 * 1024 * 1024 * 1024
+
+
+def _check_content_length(content_length: str | None, max_bytes: int) -> None:
+    """Reject up front if the server advertises a body larger than *max_bytes*.
+
+    An absent, unparseable, or negative length is left to the streamed-byte cap in
+    ``_write_capped`` rather than trusted here.
+    """
+    if content_length is None:
+        return
+    try:
+        declared = int(content_length)
+    except ValueError:
+        return
+    if declared > max_bytes:
+        raise ValueError(f"Download too large: {declared} bytes exceeds the {max_bytes}-byte limit")
+
+
+def _write_capped(chunks: Iterable[bytes], dest: BinaryIO, max_bytes: int) -> int:
+    """Write *chunks* to *dest*, aborting if more than *max_bytes* are written.
+
+    Guards against servers that omit/understate Content-Length and then stream an
+    oversized body. Returns the number of bytes written.
+    """
+    written = 0
+    for chunk in chunks:
+        written += len(chunk)
+        if written > max_bytes:
+            raise ValueError(f"Download exceeded the {max_bytes}-byte limit")
+        dest.write(chunk)
+    return written
 
 
 def _scrypt_derive(password: str, salt: bytes, n: int = 16384, r: int = 8, p: int = 1, dklen: int = 32) -> bytes:
@@ -134,14 +174,17 @@ class EasyRadiologyProvider(DataProvider):
     def _download_and_decrypt(self, zip_url: str, access_key: str, exam_hash: str) -> list[DicomSeries]:
         # Validate before fetching to guard against SSRF via a tampered linkToERI.
         _validate_download_url(zip_url)
+        max_bytes = Settings().max_download_bytes
         with tempfile.TemporaryDirectory() as tmpdir:
             zip_path = Path(tmpdir) / "exam.zip"
             # Redirects are disabled: a 30x bounce could escape the host allowlist.
             with httpx.Client(timeout=120.0, follow_redirects=False) as client:
                 with client.stream("GET", zip_url) as resp:
                     resp.raise_for_status()
+                    # Reject early on an oversized advertised length, then enforce the
+                    # cap on the actual streamed bytes in case the header lies/is absent.
+                    _check_content_length(resp.headers.get("Content-Length"), max_bytes)
                     with open(zip_path, "wb") as f:
-                        for chunk in resp.iter_bytes(chunk_size=8192):
-                            f.write(chunk)
+                        _write_capped(resp.iter_bytes(chunk_size=8192), f, max_bytes)
             local = LocalProvider()
             return local.fetch(str(zip_path), {})
