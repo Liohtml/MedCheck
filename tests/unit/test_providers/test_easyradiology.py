@@ -3,12 +3,51 @@ from base64 import b64encode
 import pytest
 
 from medcheck.providers.easyradiology import (
+    _MAX_DOWNLOAD_BYTES,
     EasyRadiologyProvider,
+    _check_content_length,
     _decrypt_aes_cbc,
     _scrypt_derive,
     _validate_download_url,
+    _write_capped,
     parse_access_code,
 )
+
+
+class _Sink:
+    """Minimal file-like object that records bytes written."""
+
+    def __init__(self) -> None:
+        self.data = bytearray()
+
+    def write(self, chunk: bytes) -> None:
+        self.data.extend(chunk)
+
+
+def test_write_capped_allows_within_limit():
+    sink = _Sink()
+    written = _write_capped([b"aaaa", b"bbbb"], sink, max_bytes=16)
+    assert written == 8
+    assert bytes(sink.data) == b"aaaabbbb"
+
+
+def test_write_capped_aborts_when_exceeded():
+    sink = _Sink()
+    # Streamed body exceeds the cap even though no single chunk does.
+    with pytest.raises(ValueError, match="exceeded"):
+        _write_capped([b"x" * 6, b"x" * 6], sink, max_bytes=10)
+
+
+def test_check_content_length_rejects_oversized_header():
+    with pytest.raises(ValueError, match="too large"):
+        _check_content_length(str(_MAX_DOWNLOAD_BYTES + 1), _MAX_DOWNLOAD_BYTES)
+
+
+def test_check_content_length_allows_missing_or_small():
+    # None (absent header) and a small/garbage value must not raise.
+    _check_content_length(None, _MAX_DOWNLOAD_BYTES)
+    _check_content_length("123", _MAX_DOWNLOAD_BYTES)
+    _check_content_length("not-a-number", _MAX_DOWNLOAD_BYTES)
 
 
 def test_decrypt_aes_cbc_round_trip():

@@ -61,6 +61,12 @@ _ANATOMY_HINTS: dict[str, str] = {
 # Providers that run on-device and therefore need no external-transmission consent.
 _LOCAL_PROVIDERS = frozenset({"local"})
 
+# Default upper bound on the total number of slice images sent to the LLM in a
+# single analysis. Without it a study with many series would send 5 images x N
+# series, inflating cost/latency and the volume of patient-derived data leaving
+# the host. Overridable per-deployment via Settings.max_vision_images.
+_MAX_VISION_IMAGES: int = 12
+
 # Directory containing detailed, hand-authored anatomy prompt templates.
 _ANATOMY_TEMPLATE_DIR = Path(__file__).resolve().parents[1] / "prompts" / "anatomy"
 
@@ -222,6 +228,34 @@ def _select_slice_indices(volume: np.ndarray, top_slices: list[int] | None, n: i
     return list(range(0, n_slices, step))[:n]
 
 
+def _collect_images(context: PipelineContext, max_images: int = _MAX_VISION_IMAGES) -> list[AnnotatedImage]:
+    """Build the slice images to send to the LLM, capped at *max_images* total.
+
+    Slices are gathered per series (preferring each series' top/suspicious slices);
+    once *max_images* is reached collection stops, so a study with many series can't
+    blow past the cap. Series are visited in insertion order for deterministic output.
+    """
+    images: list[AnnotatedImage] = []
+    if max_images <= 0:
+        return images
+    for series_name, volume in context.volumes.items():
+        top = context.top_slices.get(series_name)
+        indices = _select_slice_indices(volume, list(top) if top else None)
+        for idx in indices:
+            if len(images) >= max_images:
+                return images
+            png_bytes = _volume_slice_to_png_bytes(volume[idx])
+            images.append(
+                AnnotatedImage(
+                    series_name=series_name,
+                    slice_index=idx,
+                    image_bytes=png_bytes,
+                    description=f"Series: {series_name} | Slice {idx + 1}/{volume.shape[0]}",
+                )
+            )
+    return images
+
+
 class VisionAnalysisStep(PipelineStep):
     """Pipeline step: send top MRI slices to an LLM for structured vision analysis."""
 
@@ -236,21 +270,11 @@ class VisionAnalysisStep(PipelineStep):
         anatomy = context.detected_anatomy or "musculoskeletal region"
         prompt = build_prompt(context.clinical_context, anatomy)
 
-        # Build AnnotatedImage list from all series
-        images: list[AnnotatedImage] = []
-        for series_name, volume in context.volumes.items():
-            top = context.top_slices.get(series_name)
-            indices = _select_slice_indices(volume, list(top) if top else None)
-            for idx in indices:
-                png_bytes = _volume_slice_to_png_bytes(volume[idx])
-                images.append(
-                    AnnotatedImage(
-                        series_name=series_name,
-                        slice_index=idx,
-                        image_bytes=png_bytes,
-                        description=f"Series: {series_name} | Slice {idx + 1}/{volume.shape[0]}",
-                    )
-                )
+        # Build the (capped) AnnotatedImage list across all series. The cap is
+        # operator-configurable via MEDCHECK_MAX_VISION_IMAGES.
+        from medcheck.core.config import Settings
+
+        images = _collect_images(context, Settings().max_vision_images)
 
         # Route to an LLM provider. Honour an explicit preference (CLI --model /
         # workflow config); otherwise default to on-device 'local'. Consent only

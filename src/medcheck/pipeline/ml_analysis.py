@@ -6,6 +6,7 @@ No API key required.
 
 from __future__ import annotations
 
+import threading
 from typing import Any
 
 import numpy as np
@@ -18,17 +19,31 @@ from medcheck.core.step import PipelineStep
 console = Console()
 
 _feature_extractor = None
+# Guards lazy initialization of the module-level singleton. Without it, two
+# concurrent requests (e.g. under uvicorn) could both pass the `is None` check
+# and build the model twice, wasting memory and racing on the global.
+_feature_extractor_lock = threading.Lock()
+
+
+def _build_feature_extractor() -> Any:
+    """Construct the ResNet18 feature extractor (imports torch lazily)."""
+    import torch
+    from torchvision import models
+
+    model = models.resnet18(weights=models.ResNet18_Weights.IMAGENET1K_V1)
+    extractor = torch.nn.Sequential(*list(model.children())[:-1])
+    extractor.requires_grad_(False)
+    return extractor
 
 
 def _get_feature_extractor() -> Any:
     global _feature_extractor
+    # Double-checked locking: the fast path avoids the lock once initialized,
+    # while the lock makes the first-time build safe under concurrency.
     if _feature_extractor is None:
-        import torch
-        from torchvision import models
-
-        model = models.resnet18(weights=models.ResNet18_Weights.IMAGENET1K_V1)
-        _feature_extractor = torch.nn.Sequential(*list(model.children())[:-1])
-        _feature_extractor.requires_grad_(False)
+        with _feature_extractor_lock:
+            if _feature_extractor is None:
+                _feature_extractor = _build_feature_extractor()
     return _feature_extractor
 
 
