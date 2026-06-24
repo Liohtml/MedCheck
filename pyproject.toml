@@ -27,7 +27,10 @@ dependencies = [
     "uvicorn[standard]>=0.32.0",
     "typer>=0.15.0",
     "pydicom>=3.0.0",
-    "numpy>=1.26.0",
+    # Upper bound: numpy 2.5+ requires Python >=3.12, but this project supports
+    # >=3.10. Without the cap, a 3.12+ resolver pulls numpy 2.5, whose type stub
+    # uses 3.12-only `type` syntax and breaks `mypy --python-version 3.10`.
+    "numpy>=1.26.0,<2.5",
     "Pillow>=10.0.0",
     "httpx>=0.28.0",
     "pyyaml>=6.0",

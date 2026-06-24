@@ -28,6 +28,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `anatomy` values (#102)
 
 ### Fixed
+- Cap `numpy<2.5` so the dependency stays compatible with the project's declared
+  Python floor (`>=3.10`); numpy 2.5 requires Python 3.12 and its type stub uses
+  3.12-only syntax that broke `mypy --python-version 3.10` in CI
 - `medcheck analyze` now validates `--report` and `--lang`: an unknown value fails
   fast with a clear error instead of silently producing a JSON report (#99). The
   `POST /api/analyze` `language` field now also accepts `fr`/`es`, matching the CLI
