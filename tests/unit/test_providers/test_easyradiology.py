@@ -1,4 +1,5 @@
 from base64 import b64encode
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -48,6 +49,48 @@ def test_check_content_length_allows_missing_or_small():
     _check_content_length(None, _MAX_DOWNLOAD_BYTES)
     _check_content_length("123", _MAX_DOWNLOAD_BYTES)
     _check_content_length("not-a-number", _MAX_DOWNLOAD_BYTES)
+
+
+def _mock_httpx_client_streaming(chunks: list[bytes], headers: dict[str, str]) -> MagicMock:
+    """Build a MagicMock standing in for httpx.Client whose stream() yields *chunks*."""
+    resp = MagicMock()
+    resp.headers = headers
+    resp.raise_for_status = MagicMock()
+    resp.iter_bytes = MagicMock(return_value=chunks)
+
+    stream_cm = MagicMock()
+    stream_cm.__enter__ = MagicMock(return_value=resp)
+    stream_cm.__exit__ = MagicMock(return_value=False)
+
+    client = MagicMock()
+    client.stream = MagicMock(return_value=stream_cm)
+    client_cm = MagicMock()
+    client_cm.__enter__ = MagicMock(return_value=client)
+    client_cm.__exit__ = MagicMock(return_value=False)
+    return client_cm
+
+
+def test_download_and_decrypt_aborts_on_oversized_stream(monkeypatch):
+    # End-to-end through _download_and_decrypt: a body larger than the configured
+    # cap must abort with ValueError before the ZIP is handed to LocalProvider.
+    monkeypatch.setenv("MEDCHECK_MAX_DOWNLOAD_BYTES", "10")
+    provider = EasyRadiologyProvider()
+    client_cm = _mock_httpx_client_streaming([b"x" * 6, b"x" * 6], headers={})  # 12 bytes > 10
+
+    with patch("medcheck.providers.easyradiology.httpx.Client", return_value=client_cm):
+        with pytest.raises(ValueError, match="exceeded"):
+            provider._download_and_decrypt("https://portal.easyradiology.net/exam.zip", "key", "hash")
+
+
+def test_download_and_decrypt_rejects_oversized_content_length(monkeypatch):
+    # The advertised Content-Length alone (before any bytes stream) must abort.
+    monkeypatch.setenv("MEDCHECK_MAX_DOWNLOAD_BYTES", "10")
+    provider = EasyRadiologyProvider()
+    client_cm = _mock_httpx_client_streaming([b"x"], headers={"Content-Length": "999"})
+
+    with patch("medcheck.providers.easyradiology.httpx.Client", return_value=client_cm):
+        with pytest.raises(ValueError, match="too large"):
+            provider._download_and_decrypt("https://portal.easyradiology.net/exam.zip", "key", "hash")
 
 
 def test_decrypt_aes_cbc_round_trip():
