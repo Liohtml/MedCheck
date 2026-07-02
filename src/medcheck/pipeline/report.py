@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import html
 import json
 import os
@@ -9,9 +10,32 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from medcheck.core.context import PipelineContext
+from medcheck.core.context import PatientInfo, PipelineContext
 from medcheck.core.step import PipelineStep
 from medcheck.i18n import get_strings
+
+
+def _display_patient(ctx: PipelineContext) -> PatientInfo:
+    """Return the patient info to embed in reports.
+
+    With ``ctx.deidentify`` set, direct identifiers (name, patient ID, birth
+    date) are replaced by a stable SHA-256 pseudonym — the same scheme the
+    ingest step uses for log output — so reports can be shared without
+    exposing PHI. Sex and age are retained as they are clinically relevant
+    and not directly identifying.
+    """
+    if not ctx.deidentify:
+        return ctx.patient
+    basis = ctx.patient.patient_id or ctx.patient.name
+    pseudo = hashlib.sha256(basis.encode("utf-8")).hexdigest()[:12] if basis else "unknown"
+    return PatientInfo(
+        name=f"Patient #{pseudo}",
+        patient_id=pseudo,
+        birth_date="",
+        sex=ctx.patient.sex,
+        age=ctx.patient.age,
+    )
+
 
 # ---------------------------------------------------------------------------
 # JSON report
@@ -46,15 +70,17 @@ def generate_json_report(ctx: PipelineContext) -> str:
             slices = slices.tolist()
         top_slices_summary[series] = slices
 
+    patient = _display_patient(ctx)
     report: dict[str, Any] = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "language": ctx.report_language,
+        "deidentified": ctx.deidentify,
         "patient": {
-            "name": ctx.patient.name,
-            "patient_id": ctx.patient.patient_id,
-            "birth_date": ctx.patient.birth_date,
-            "sex": ctx.patient.sex,
-            "age": ctx.patient.age,
+            "name": patient.name,
+            "patient_id": patient.patient_id,
+            "birth_date": patient.birth_date,
+            "sex": patient.sex,
+            "age": patient.age,
         },
         "study": {
             "date": ctx.study.date,
@@ -115,13 +141,14 @@ def generate_pdf_report(ctx: PipelineContext) -> str:
     story.append(Spacer(1, 0.3 * cm))
 
     # Patient / Study info
+    patient = _display_patient(ctx)
     story.append(Paragraph(i18n["patient_info"], styles["Heading2"]))
     patient_data = [
-        [i18n["field_name"], ctx.patient.name],
-        [i18n["field_id"], ctx.patient.patient_id],
-        [i18n["field_dob"], ctx.patient.birth_date],
-        [i18n["field_sex"], ctx.patient.sex],
-        [i18n["field_age"], ctx.patient.age],
+        [i18n["field_name"], patient.name],
+        [i18n["field_id"], patient.patient_id],
+        [i18n["field_dob"], patient.birth_date],
+        [i18n["field_sex"], patient.sex],
+        [i18n["field_age"], patient.age],
         [i18n["field_study_date"], ctx.study.date],
         [i18n["field_study_desc"], ctx.study.description],
         [i18n["field_institution"], ctx.study.institution],
@@ -226,6 +253,7 @@ def generate_html_report(ctx: PipelineContext) -> str:
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
     html_path = str(Path(output_dir) / f"report_{timestamp}.html")
 
+    patient = _display_patient(ctx)
     findings_rows = ""
     for f in ctx.findings:
         findings_rows += (
@@ -268,11 +296,11 @@ def generate_html_report(ctx: PipelineContext) -> str:
   <h2>{html.escape(i18n["patient_info"])}</h2>
   <table>
     <tr><th>{th_field}</th><th>{th_value}</th></tr>
-    <tr><td>{html.escape(i18n["field_name"])}</td><td>{html.escape(ctx.patient.name)}</td></tr>
-    <tr><td>{html.escape(i18n["field_id"])}</td><td>{html.escape(ctx.patient.patient_id)}</td></tr>
-    <tr><td>{html.escape(i18n["field_dob"])}</td><td>{html.escape(ctx.patient.birth_date)}</td></tr>
-    <tr><td>{html.escape(i18n["field_sex"])}</td><td>{html.escape(ctx.patient.sex)}</td></tr>
-    <tr><td>{html.escape(i18n["field_age"])}</td><td>{html.escape(ctx.patient.age)}</td></tr>
+    <tr><td>{html.escape(i18n["field_name"])}</td><td>{html.escape(patient.name)}</td></tr>
+    <tr><td>{html.escape(i18n["field_id"])}</td><td>{html.escape(patient.patient_id)}</td></tr>
+    <tr><td>{html.escape(i18n["field_dob"])}</td><td>{html.escape(patient.birth_date)}</td></tr>
+    <tr><td>{html.escape(i18n["field_sex"])}</td><td>{html.escape(patient.sex)}</td></tr>
+    <tr><td>{html.escape(i18n["field_age"])}</td><td>{html.escape(patient.age)}</td></tr>
     <tr><td>{html.escape(i18n["field_study_date"])}</td><td>{html.escape(ctx.study.date)}</td></tr>
     <tr><td>{html.escape(i18n["field_study_desc"])}</td><td>{html.escape(ctx.study.description)}</td></tr>
     <tr><td>{html.escape(i18n["field_institution"])}</td><td>{html.escape(ctx.study.institution)}</td></tr>
@@ -337,6 +365,13 @@ class ReportStep(PipelineStep):
             timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
             path = str(Path(output_dir) / f"report_{timestamp}.json")
             Path(path).write_text(json_str, encoding="utf-8")
+
+        # Reports may contain PHI: restrict access to the owner (no-op on
+        # platforms without POSIX permissions).
+        try:
+            os.chmod(path, 0o600)
+        except OSError:
+            pass
 
         context.report_path = path
         return context

@@ -123,6 +123,11 @@ def analyze(
         "--allow-cloud-llm",
         help="Consent to sending patient-derived data to external cloud LLM APIs",
     ),
+    deidentify: bool = typer.Option(
+        False,
+        "--deidentify",
+        help="Replace patient name, ID and birth date with a pseudonym in generated reports",
+    ),
 ) -> None:
     """Analyze medical images from DICOM files or radiology portals."""
     from medcheck.core.config import Settings
@@ -151,6 +156,7 @@ def analyze(
     ctx.llm_provider = model or settings.default_llm_provider
     # Consent to external LLM transmission via flag or MEDCHECK_ALLOW_EXTERNAL_LLM env.
     ctx.allow_external_llm = allow_cloud_llm or settings.allow_external_llm
+    ctx.deidentify = deidentify
 
     # Clinical context
     if symptoms or trauma or diagnosis:

@@ -89,6 +89,9 @@ class PipelineContext:
     limitations: list[str] = field(default_factory=list)
     report_path: str = ""
     report_format: str = "json"
+    # Replace direct patient identifiers (name, ID, birth date) with a
+    # pseudonym in all generated reports.
+    deidentify: bool = False
     report_language: str = "en"
     output_dir: str = ""
     step_config: dict[str, Any] = field(default_factory=dict)

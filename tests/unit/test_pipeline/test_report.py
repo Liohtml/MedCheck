@@ -111,3 +111,26 @@ def test_report_step_pdf(tmp_path: Path):
 
     assert result.report_path.endswith(".pdf")
     assert Path(result.report_path).exists()
+
+
+def test_generate_json_report_deidentified(tmp_path: Path):
+    ctx = _make_ctx(tmp_path)
+    ctx.deidentify = True
+    data = json.loads(generate_json_report(ctx))
+    assert data["deidentified"] is True
+    assert "Test^Patient" not in json.dumps(data)
+    assert data["patient"]["birth_date"] == ""
+    assert data["patient"]["name"].startswith("Patient #")
+    # Pseudonym is stable for the same patient ID
+    assert data["patient"]["patient_id"] == json.loads(generate_json_report(ctx))["patient"]["patient_id"]
+
+
+def test_report_step_restricts_permissions(tmp_path: Path):
+    import os
+    import sys
+
+    ctx = _make_ctx(tmp_path)
+    result = ReportStep().run(ctx)
+    if sys.platform != "win32":
+        mode = os.stat(result.report_path).st_mode & 0o777
+        assert mode == 0o600

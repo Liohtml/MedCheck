@@ -65,3 +65,14 @@ def test_ingest_step_loads_local_dicom(tmp_path: Path):
 
 def test_ingest_step_name():
     assert IngestStep().name == "ingest"
+
+
+def test_ingest_step_requires_authentication():
+    import pytest
+
+    ctx = PipelineContext()
+    ctx.source = "https://app.easyradiology.net/study/abc"
+    ctx.provider_name = "easyradiology"
+    ctx.credentials = {}  # no access code -> authenticate() returns False
+    with pytest.raises(PermissionError, match="Authentication failed"):
+        IngestStep().run(ctx)
