@@ -92,8 +92,7 @@ _EXPECTED_SECURITY_HEADERS = {
     "X-Content-Type-Options": "nosniff",
     "Referrer-Policy": "no-referrer",
     "Content-Security-Policy": (
-        "default-src 'self'; script-src 'self' 'unsafe-inline'; "
-        "style-src 'self' 'unsafe-inline'; frame-ancestors 'none';"
+        "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; frame-ancestors 'none';"
     ),
 }
 
@@ -119,3 +118,70 @@ def test_content_security_policy_frame_ancestors():
     resp = client.get("/health")
     csp = resp.headers.get("Content-Security-Policy", "")
     assert "frame-ancestors 'none'" in csp
+
+
+# --- CSP hardening (issue #120) ---
+
+
+def test_no_inline_scripts_in_index():
+    """script-src excludes 'unsafe-inline', so index.html must not use inline JS."""
+    client = TestClient(create_app())
+    page = client.get("/").text
+    csp = client.get("/").headers["Content-Security-Policy"]
+    assert "script-src 'self'" in csp
+    assert "'unsafe-inline'" not in csp.split("style-src")[0]
+    for attr in ("onclick=", "onchange=", "ondrop=", "ondragover=", "ondragleave="):
+        assert attr not in page
+    assert "<script>" not in page  # only src=... script tags allowed
+    assert "/static/app.js" in page
+    assert client.get("/static/app.js").status_code == 200
+
+
+# --- CSRF origin check (issue #100) ---
+
+
+def test_analyze_rejects_cross_origin_post():
+    client = TestClient(create_app(Settings(api_key=None)))
+    resp = client.post(
+        "/api/analyze",
+        json=_VALID_BODY,
+        headers={"Origin": "https://evil.example"},
+    )
+    assert resp.status_code == 403
+
+
+def test_analyze_allows_same_origin_post():
+    client = TestClient(create_app(Settings(api_key=None)))
+    resp = client.post(
+        "/api/analyze",
+        json=_VALID_BODY,
+        headers={"Origin": "http://testserver"},
+    )
+    assert resp.status_code == 501  # passes CSRF check, hits the stub
+
+
+def test_analyze_rejects_null_origin():
+    client = TestClient(create_app(Settings(api_key=None)))
+    resp = client.post("/api/analyze", json=_VALID_BODY, headers={"Origin": "null"})
+    assert resp.status_code == 403
+
+
+# --- Rate limiting (issue #110) ---
+
+
+def test_analyze_rate_limited(monkeypatch):
+    monkeypatch.setenv("MEDCHECK_RATE_LIMIT", "3")
+    client = TestClient(create_app(Settings(api_key=None)))
+    statuses = [client.post("/api/analyze", json=_VALID_BODY).status_code for _ in range(5)]
+    assert statuses[:3] == [501, 501, 501]
+    assert statuses[3] == 429
+    assert statuses[4] == 429
+
+
+# --- Per-request cloud LLM consent (issue #63) ---
+
+
+def test_analyze_accepts_allow_cloud_llm_field():
+    client = TestClient(create_app(Settings(api_key=None)))
+    resp = client.post("/api/analyze", json={"source": "x", "allow_cloud_llm": True})
+    assert resp.status_code == 501  # field is accepted by the schema
