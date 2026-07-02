@@ -95,7 +95,7 @@ jobs:
         run: echo "name=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
 
       - name: Build & push lite image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           target: lite
@@ -109,7 +109,7 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Build & push full image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           target: full
