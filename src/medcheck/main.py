@@ -106,7 +106,11 @@ def analyze(
     source: str = typer.Argument(..., help="DICOM folder, ZIP file, or portal URL"),
     provider: str | None = typer.Option(None, "--provider", "-p", help="Data provider (auto-detected if omitted)"),
     code: str | None = typer.Option(None, "--code", help="Access code (for portal providers)"),
-    dob: str | None = typer.Option(None, "--dob", help="Date of birth (for portal providers)"),
+    dob: str | None = typer.Option(
+        None,
+        "--dob",
+        help="Date of birth (for portal providers; stored as a credential but NOT verified by MedCheck)",
+    ),
     symptoms: str | None = typer.Option(None, "--symptoms", help="Patient symptoms"),
     trauma: str | None = typer.Option(None, "--trauma", help="Trauma mechanism/history"),
     trauma_date: str | None = typer.Option(None, "--trauma-date", help="Date of trauma"),
