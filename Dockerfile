@@ -7,7 +7,7 @@ RUN groupadd --system --gid 10001 medcheck \
  && useradd --system --uid 10001 --gid medcheck --home-dir /app medcheck
 
 # Install uv for fast dependency resolution
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+COPY --from=ghcr.io/astral-sh/uv:0.8.17 /uv /usr/local/bin/uv
 
 # README and LICENSE are referenced by pyproject metadata (readme/license), so
 # they must be present for `uv sync` to build the medcheck package itself.

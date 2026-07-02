@@ -67,4 +67,3 @@ logs/
 
 # uv
 .uv/
-uv.lock
