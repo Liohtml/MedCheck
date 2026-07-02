@@ -10,37 +10,41 @@
 [![codecov](https://codecov.io/gh/Liohtml/MedCheck/branch/main/graph/badge.svg)](https://codecov.io/gh/Liohtml/MedCheck)
 [![PyPI](https://img.shields.io/pypi/v/medcheck)](https://pypi.org/project/medcheck/)
 [![Python](https://img.shields.io/pypi/pyversions/medcheck)](https://pypi.org/project/medcheck/)
+[![Docker](https://img.shields.io/badge/GHCR-medcheck-blue?logo=docker)](https://github.com/Liohtml/MedCheck/pkgs/container/medcheck)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![GitHub release](https://img.shields.io/github/v/release/Liohtml/MedCheck)](https://github.com/Liohtml/MedCheck/releases)
 [![GitHub stars](https://img.shields.io/github/stars/Liohtml/MedCheck)](https://github.com/Liohtml/MedCheck/stargazers)
 
+Analyze MRI scans with local ML models and frontier Vision-LLMs (Claude, GPT, Gemini)
+and generate structured, radiology-style reports — from the CLI, a web UI, or Docker.
+
+**[Quick Start](#quick-start)** · **[Usage](#usage)** · **[Configuration](#configuration)** · **[Docs](docs/)** · **[Contributing](#contributing)** · **[Report Bug](https://github.com/Liohtml/MedCheck/issues/new?template=bug_report.yml)**
+
 </div>
 
-MedCheck analyzes MRI scans using local ML models and frontier Vision-LLMs (Claude, GPT, Gemini) to generate professional radiology-style reports with annotated images.
-
----
-
-**[Quick Start](#quick-start)** · **[Documentation](docs/)** · **[Contributing](CONTRIBUTING.md)** · **[Report Bug](https://github.com/Liohtml/MedCheck/issues/new?template=bug_report.yml)**
+> ⚠️ **MedCheck is a research and educational tool, NOT a medical device.** Every
+> output must be reviewed by a qualified radiologist before any clinical use.
+> See the full [disclaimer](#disclaimer) below.
 
 ---
 
 ## Features
 
 - **Plug & Play Docker** — single `docker run` command, no local setup required
-- **Multiple data sources** — local DICOM files, easyRadiology platform, and custom plugins
-- **Local ML analysis** — on-device inference with LLaVA-Med and MONAI-based models; fully offline capable
-- **Vision-LLM analysis** — frontier model support for Claude Opus 4.8, GPT-5.5, and Gemini 3.5 Flash
-- **Clinical context input** — attach patient history, symptoms, and prior findings to guide report generation
-- **Professional PDF/HTML reports** — annotated images with structured radiology-style findings and impressions
+- **Multiple data sources** — local DICOM folders/ZIPs, easyRadiology portal links, and custom plugins
+- **Local ML analysis** — on-device anomaly detection and feature extraction; no API key required
+- **Vision-LLM analysis** — Claude Opus 4.8, GPT-5.5, and Gemini 3.5 Flash (opt-in, consent-gated)
+- **Privacy by default** — nothing leaves your machine without explicit consent; `--deidentify` pseudonymizes reports
+- **Clinical context input** — attach symptoms, trauma history, and suspected diagnosis to guide the analysis
+- **Professional reports** — structured PDF/HTML/JSON with findings tables, impression, and limitations
 - **YAML workflow engine** — compose and version-control custom analysis pipelines as code
-- **Generic anatomy support** — brain, spine, knee, shoulder, abdomen, and more
-- **Web UI + CLI** — interactive browser dashboard and a scriptable command-line interface
+- **Web UI + CLI + REST API** — 3-step browser wizard, scriptable CLI, and an HTTP API
 
 ---
 
 ## Quick Start
 
-### Option 1 — Docker (recommended)
+### Option 1 — Docker (recommended, ~1 minute)
 
 ```bash
 docker run -p 8080:8080 \
@@ -49,13 +53,13 @@ docker run -p 8080:8080 \
   ghcr.io/liohtml/medcheck:latest
 ```
 
-Then open [http://localhost:8080](http://localhost:8080).
+Open [http://localhost:8080](http://localhost:8080) and follow the 3-step wizard.
 
 ### Option 2 — pip install
 
 ```bash
 pip install medcheck
-medcheck serve
+medcheck serve            # web UI on http://localhost:8080
 ```
 
 ### Option 3 — From source
@@ -66,6 +70,24 @@ cd MedCheck
 uv sync
 uv run medcheck serve
 ```
+
+### Your first analysis (CLI)
+
+```bash
+# Fully local, no API key needed (ML analysis + JSON report):
+medcheck analyze ./my-dicom-folder --steps ingest,preprocess,ml_analysis,report
+
+# Full analysis with a cloud Vision-LLM (requires a key + explicit consent):
+medcheck analyze ./my-dicom-folder \
+  --model claude --allow-cloud-llm \
+  --symptoms "Medial knee pain after sports injury" \
+  --report pdf --lang en
+
+# Not sure what to type? Let MedCheck ask you:
+medcheck analyze ./my-dicom-folder --interactive
+```
+
+Reports land in `./output/` (they contain patient data unless you pass `--deidentify` — see [Privacy & Security](#privacy--security)).
 
 ---
 
@@ -82,10 +104,51 @@ uv run medcheck serve
 ```
 
 1. **Ingest** — load studies from local paths, the easyRadiology portal, or third-party plugins.
-2. **Preprocess** — normalize pixel values, resize to model input dimensions, and strip PHI.
-3. **ML Analyze** — run local segmentation and anomaly-detection models (no API key required).
-4. **Vision AI** — send annotated slices to a frontier Vision-LLM for language-based findings.
-5. **Report** — render a structured radiology report with annotated images in PDF and HTML.
+2. **Preprocess** — normalize pixel values, detect anatomy/planes, build volumes.
+3. **ML Analyze** — run local anomaly-detection models to find suspicious slices (no API key required).
+4. **Vision AI** — send the top slices to a Vision-LLM for structured findings *(only with your consent)*.
+5. **Report** — render a structured radiology-style report as PDF, HTML, or JSON.
+
+---
+
+## Usage
+
+### CLI reference
+
+```bash
+medcheck analyze SOURCE [OPTIONS]   # run an analysis pipeline
+medcheck serve                      # start the web UI / REST API
+medcheck providers                  # list data providers
+medcheck models                     # list LLM providers and availability
+```
+
+The most useful `analyze` options:
+
+| Option | Description |
+|---|---|
+| `--model, -m` | LLM provider: `claude`, `openai`, `gemini`, `local` |
+| `--allow-cloud-llm` | Consent to send imaging data to an external cloud LLM |
+| `--deidentify` | Replace patient name/ID/DOB with a pseudonym in reports |
+| `--symptoms`, `--trauma`, `--diagnosis` | Clinical context to guide the analysis |
+| `--report, -r` | Report format: `pdf`, `html`, `json` |
+| `--lang, -l` | Report language: `en`, `de`, `fr`, `es` |
+| `--steps` | Comma-separated pipeline steps (skip what you don't need) |
+| `--workflow, -w` | Run a YAML-defined pipeline instead |
+| `--interactive, -i` | Prompt for missing inputs |
+
+Run `medcheck analyze --help` for the full list.
+
+### REST API
+
+`medcheck serve` exposes:
+
+| Endpoint | Description |
+|---|---|
+| `GET /health` | Liveness probe (always public) |
+| `POST /api/analyze` | Run an analysis (JSON body: `source`, `anatomy`, `report_format`, `language`, `allow_cloud_llm`, …) |
+
+When `MEDCHECK_API_KEY` is set, `/api/*` requires an `X-API-Key` header. Requests
+are rate-limited per client IP (`MEDCHECK_RATE_LIMIT`, default 10/min).
 
 ---
 
@@ -97,6 +160,8 @@ uv run medcheck serve
 | **GPT-5.5** | OpenAI | High-resolution image understanding |
 | **Gemini 3.5 Flash** | Google | Speed-optimized, cost-effective batch processing |
 | **LLaVA-Med** | Local | Fully offline, no API key required *(coming soon — [#18](https://github.com/Liohtml/MedCheck/issues/18))* |
+
+Default model IDs are overridable via `MEDCHECK_CLAUDE_MODEL`, `MEDCHECK_OPENAI_MODEL`, and `MEDCHECK_GEMINI_MODEL`.
 
 ---
 
@@ -118,44 +183,38 @@ Copy `.env.example` and fill in your API keys:
 cp .env.example .env
 ```
 
-```dotenv
-# LLM API Keys (at least one needed for Vision analysis)
-ANTHROPIC_API_KEY=        # https://console.anthropic.com/settings/keys
-OPENAI_API_KEY=           # https://platform.openai.com/api-keys
-GOOGLE_API_KEY=           # https://aistudio.google.com/apikey
+| Variable | Default | Description |
+|---|---|---|
+| `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` / `GOOGLE_API_KEY` | — | LLM keys (at least one for cloud Vision analysis) |
+| `MEDCHECK_LLM_PROVIDER` | `claude` | Default LLM provider (`claude` \| `openai` \| `gemini` \| `local`) |
+| `MEDCHECK_ALLOW_EXTERNAL_LLM` | off | Consent to external LLM transmission (`1` to enable) |
+| `MEDCHECK_LANGUAGE` | `en` | Default report language |
+| `MEDCHECK_HOST` | `127.0.0.1` | Bind address; set `0.0.0.0` to expose on the network |
+| `MEDCHECK_PORT` | `8080` | Bind port |
+| `MEDCHECK_API_KEY` | — | When set, `/api` requires an `X-API-Key` header |
+| `MEDCHECK_RATE_LIMIT` | `10` | `POST /api/analyze` requests per IP per minute (`0` = off) |
+| `MEDCHECK_MAX_VISION_IMAGES` | `12` | Max slice images sent to the LLM per analysis |
+| `MEDCHECK_MAX_DOWNLOAD_BYTES` | 2 GiB | Cap on portal exam-ZIP downloads |
 
-# Defaults
-MEDCHECK_LLM_PROVIDER=claude   # claude | openai | gemini
-MEDCHECK_LANGUAGE=en           # en | de
-MEDCHECK_HOST=127.0.0.1        # localhost only; set 0.0.0.0 to expose on the network
-MEDCHECK_PORT=8080
-MEDCHECK_API_KEY=              # when set, /api requires an X-API-Key header
-MEDCHECK_RATE_LIMIT=10         # POST /api/analyze requests per IP per minute (0 = off)
-```
+---
 
-> **Security:** The server binds to `127.0.0.1` by default. If you expose it on
-> the network (`MEDCHECK_HOST=0.0.0.0`), set `MEDCHECK_API_KEY` so the `/api`
-> endpoints require an `X-API-Key` header — this app handles patient PHI.
->
-> **Patient data & cloud LLMs:** Vision analysis sends imaging data to an
-> external LLM provider only after explicit consent. Pass `--allow-cloud-llm`,
-> set `MEDCHECK_ALLOW_EXTERNAL_LLM=1`, or confirm the interactive prompt. If the
-> requested provider is unavailable, MedCheck never reroutes data to a different
-> cloud provider. See [SECURITY.md](SECURITY.md#handling-of-patient-data-phi).
->
-> **Reports contain PHI:** generated reports embed patient name, ID and birth
-> date from the DICOM metadata. Pass `--deidentify` to replace them with a
-> stable pseudonym. Report files are written with owner-only permissions.
+## Privacy & Security
 
-> **Note:** easyRadiology requires no API key. Authentication uses the access code provided by your radiology clinic (via SMS, email, or letter). A date of birth may be requested by the portal but is **not** verified by MedCheck.
+MedCheck handles patient data (PHI), so the defaults are deliberately conservative:
 
-### Docker environment variables
+- **Nothing leaves your machine without consent.** Cloud Vision analysis requires
+  `--allow-cloud-llm`, `MEDCHECK_ALLOW_EXTERNAL_LLM=1`, or the interactive prompt.
+  If the requested LLM provider is unavailable, MedCheck never silently reroutes
+  data to a different cloud provider.
+- **Reports contain PHI by default.** Pass `--deidentify` to replace patient
+  name/ID/DOB with a stable pseudonym. Report files are written with owner-only
+  permissions.
+- **Localhost by default.** The server binds to `127.0.0.1`; network exposure
+  requires an explicit opt-in and should always be combined with `MEDCHECK_API_KEY`.
+- **Logs are pseudonymized**, ZIP extraction is hardened, and the web UI ships a
+  strict Content-Security-Policy.
 
-```bash
-docker run -p 8080:8080 \
-  -e ANTHROPIC_API_KEY=sk-... \
-  ghcr.io/liohtml/medcheck:lite
-```
+Details: [SECURITY.md](SECURITY.md) · vulnerability reports via [private advisory](https://github.com/Liohtml/MedCheck/security/advisories/new).
 
 ---
 
@@ -191,13 +250,6 @@ Run a workflow:
 medcheck analyze --source ./dicoms --workflow workflows/default.yml
 ```
 
-Discover what's available:
-
-```bash
-medcheck providers   # list registered data providers
-medcheck models      # list LLM providers, default models, and availability
-```
-
 ---
 
 ## Documentation
@@ -215,17 +267,31 @@ medcheck models      # list LLM providers, default models, and availability
 
 ## Contributing
 
-Contributions are welcome. Please read [CONTRIBUTING.md](CONTRIBUTING.md) first.
+Contributions of every size are welcome — from typo fixes to new data providers.
+
+**Where to start:**
+
+- 🟢 [`good first issue`](https://github.com/Liohtml/MedCheck/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) — small, well-scoped tasks with pointers
+- 🙋 [`help wanted`](https://github.com/Liohtml/MedCheck/issues?q=is%3Aissue+is%3Aopen+label%3A%22help+wanted%22) — features we'd love help with (new providers, local LLaVA-Med, …)
+- 🗺️ [Roadmap epic #51](https://github.com/Liohtml/MedCheck/issues/51) — validation & enhancement pipeline stages
+
+**Dev setup:**
 
 ```bash
 git clone https://github.com/Liohtml/MedCheck.git
 cd MedCheck
-uv sync
+uv sync --all-extras
 pre-commit install
-pytest
+
+# Quality gates (same as CI):
+uv run pytest            # tests (coverage floor: 80%)
+uv run ruff check src tests && uv run ruff format --check src tests
+uv run mypy src
+uv run bandit -r src/medcheck -ll -q
 ```
 
-All pull requests require passing CI and at least one approving review.
+Please read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a PR. All pull
+requests require passing CI and at least one approving review.
 
 ---
 
@@ -239,8 +305,8 @@ MedCheck builds on the shoulders of excellent open-source work:
 
 ---
 
-> **Disclaimer**
->
+## Disclaimer
+
 > **MedCheck is NOT a medical device and has NOT been cleared or approved by any regulatory authority (FDA, CE/EU MDR, or otherwise). It is intended solely as a research and educational tool. It must NOT be used to diagnose, screen for, or rule out any condition. All outputs must be reviewed and verified by a qualified radiologist or licensed medical professional before use in any clinical decision-making context. Do not use MedCheck as a substitute for professional medical advice, diagnosis, or treatment.**
 >
 > See **[Intended Use & Positioning](docs/intended-use.md)** for the scope and the do/don't boundary, and the **[Model Card](docs/model-card.md)** for limitations and known risks.
