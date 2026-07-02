@@ -130,6 +130,7 @@ MEDCHECK_LANGUAGE=en           # en | de
 MEDCHECK_HOST=127.0.0.1        # localhost only; set 0.0.0.0 to expose on the network
 MEDCHECK_PORT=8080
 MEDCHECK_API_KEY=              # when set, /api requires an X-API-Key header
+MEDCHECK_RATE_LIMIT=10         # POST /api/analyze requests per IP per minute (0 = off)
 ```
 
 > **Security:** The server binds to `127.0.0.1` by default. If you expose it on
@@ -138,8 +139,13 @@ MEDCHECK_API_KEY=              # when set, /api requires an X-API-Key header
 >
 > **Patient data & cloud LLMs:** Vision analysis sends imaging data to an
 > external LLM provider only after explicit consent. Pass `--allow-cloud-llm`,
-> set `MEDCHECK_ALLOW_EXTERNAL_LLM=1`, or confirm the interactive prompt. See
-> [SECURITY.md](SECURITY.md#handling-of-patient-data-phi).
+> set `MEDCHECK_ALLOW_EXTERNAL_LLM=1`, or confirm the interactive prompt. If the
+> requested provider is unavailable, MedCheck never reroutes data to a different
+> cloud provider. See [SECURITY.md](SECURITY.md#handling-of-patient-data-phi).
+>
+> **Reports contain PHI:** generated reports embed patient name, ID and birth
+> date from the DICOM metadata. Pass `--deidentify` to replace them with a
+> stable pseudonym. Report files are written with owner-only permissions.
 
 > **Note:** easyRadiology requires no API key. Authentication uses the access code provided by your radiology clinic (via SMS, email, or letter). A date of birth may be requested by the portal but is **not** verified by MedCheck.
 

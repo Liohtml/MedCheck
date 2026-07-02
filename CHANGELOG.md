@@ -7,12 +7,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-07-02
+
 ### Added
+- `--deidentify` CLI flag: replaces patient name, ID and birth date with a stable
+  SHA-256 pseudonym in JSON/PDF/HTML reports; JSON reports carry a `deidentified`
+  marker (#98)
+- Per-client-IP rate limiting on `POST /api/analyze` (default 10/min, configurable
+  via `MEDCHECK_RATE_LIMIT`, `0` disables) (#110)
+- `allow_cloud_llm` field on the web `AnalyzeRequest` for per-request consent to
+  external LLM transmission, mirroring the CLI flag (#63)
+- End-to-end integration test suite: real WorkflowEngine runs over synthetic DICOM
+  (directory + ZIP sources) through ingest → preprocess → report (#93)
+- `uv.lock` is now committed (and no longer gitignored) for reproducible builds
+  (#60, #72)
 - `MEDCHECK_MAX_VISION_IMAGES` (default 12) caps the total slice images sent to the
   LLM per analysis, and `MEDCHECK_MAX_DOWNLOAD_BYTES` (default 2 GiB) caps the
   easyRadiology exam-ZIP download size
 
 ### Changed
+- `LLMRouter` no longer falls back silently to a *different* cloud provider when the
+  requested one is unavailable; only the on-device `local` provider may be
+  substituted (with a warning), otherwise selection fails with a descriptive error —
+  patient data is never rerouted to an unintended third party (#95)
+- `IngestStep` now calls `provider.authenticate()` before `fetch()` and raises a
+  clear `PermissionError` on missing credentials (#112)
+- Generated report files are written with owner-only permissions (`0600`) (#98)
+- All inline JavaScript moved from `index.html` to `/static/app.js`; the
+  Content-Security-Policy `script-src` no longer needs `'unsafe-inline'` (#120)
+- Coverage floor raised from 55% to 80% (actual: 86%) (#35, #17)
+- `docker-compose.yml` publishes port 8080 on loopback only by default and mounts
+  `./data` read-only (#65, #66)
+- Dockerfile pins `uv` to 0.8.17 instead of `:latest` (#67)
+- `github/codeql-action` is pinned by full commit SHA instead of the mutable `v4`
+  tag (#113)
+- `--dob` help text now states the value is stored but NOT verified (#97)
+- GitHub Actions bumps: build-push-action v7, setup-buildx-action v4,
+  login-action v4, download-artifact v8, upload-artifact v7 (#79–#83)
 - Vision analysis now bounds the total number of slice images sent to the LLM
   across all series (previously 5 per series with no global cap), limiting cost,
   latency, and patient-data egress (#115)
@@ -37,6 +68,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and the shipped i18n catalogs (previously only `en`/`de` passed validation)
 
 ### Security
+- ZIP extraction hardening in `LocalProvider`: traversal check switched to
+  `Path.is_relative_to()`, symlink members rejected, and ZIP-bomb guards added
+  (member count, total uncompressed size, compression ratio) (#117, #62, #104)
+- DICOM files are read with `dcmread(force=False)`, so arbitrary non-DICOM files
+  are rejected instead of best-effort parsed (#111)
+- New Origin-check middleware rejects cross-origin and `null`-origin
+  state-changing requests (CSRF defence) (#100)
+- Removed the global bandit `B104` skip; the scan is clean without it (#91)
+- SECURITY.md documents that generated reports contain PHI by default and that
+  the output directory must be treated accordingly (#89)
 - i18n `_load_catalog()` now constrains the language code to a safe pattern before
   building a file path, so an unvalidated CLI `--lang` value can't be interpolated
   into a path outside the i18n directory (defense-in-depth) (#106)
@@ -129,7 +170,8 @@ reliability fixes, and new capabilities across 18 merged changes.
   patient ID is logged instead
 - Portal access codes are no longer echoed into `ValueError` messages
 
-[Unreleased]: https://github.com/Liohtml/MedCheck/compare/v0.2.1...HEAD
+[Unreleased]: https://github.com/Liohtml/MedCheck/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/Liohtml/MedCheck/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/Liohtml/MedCheck/compare/v0.1.0...v0.2.1
 [0.2.0]: https://github.com/Liohtml/MedCheck/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/Liohtml/MedCheck/releases/tag/v0.1.0
