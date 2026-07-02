@@ -57,6 +57,15 @@ MedCheck processes medical and health-related queries. Any vulnerability that co
 - **Network exposure is opt-in.** The web server binds to `127.0.0.1` by
   default. When exposing it on the network, set `MEDCHECK_API_KEY` so `/api`
   endpoints require an `X-API-Key` header.
+- **Generated reports contain PHI by default.** Reports (JSON/PDF/HTML) embed
+  patient name, ID and birth date from the DICOM metadata unless
+  `--deidentify` is passed, which replaces them with a stable pseudonym.
+  Report files are written with owner-only permissions (`0600`), but the
+  output directory must still be treated as PHI: do not commit it, upload it
+  to CI artifacts, or share it without de-identification.
+- **No silent LLM provider substitution.** If the requested LLM provider is
+  unavailable, MedCheck falls back only to the on-device `local` provider (or
+  fails) — it never reroutes patient data to a different cloud provider.
 
 ## Scope
 

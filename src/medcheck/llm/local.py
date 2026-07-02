@@ -2,7 +2,7 @@
 
 The README advertises a fully-offline LLaVA-Med provider. The actual on-device
 model is tracked in https://github.com/Liohtml/MedCheck/issues/18; until it lands
-this stub keeps the ``"local"`` entry in ``LLMRouter.FALLBACK_ORDER`` honest:
+this stub keeps the router's ``"local"`` fallback entry honest:
 it reports itself as unavailable so the router skips it cleanly instead of the
 pipeline failing with a confusing error, and raises an actionable message if it
 is ever invoked directly.

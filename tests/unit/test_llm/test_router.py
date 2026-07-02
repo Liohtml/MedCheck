@@ -32,17 +32,30 @@ def test_router_selects_requested():
     assert router.select("fake").name == "fake"
 
 
-def test_router_fallback():
+class LocalFakeLLM(FakeLLM):
+    name = "local"
+
+
+def test_router_no_silent_cloud_fallback():
+    # A different cloud provider must never be substituted silently (PHI risk).
     router = LLMRouter()
     router.register(UnavailableLLM())
     router.register(FakeLLM())
-    assert router.select("unavailable").name == "fake"
+    with pytest.raises(RuntimeError, match="not available"):
+        router.select("unavailable")
+
+
+def test_router_falls_back_to_local_only():
+    router = LLMRouter()
+    router.register(UnavailableLLM())
+    router.register(LocalFakeLLM())
+    assert router.select("unavailable").name == "local"
 
 
 def test_router_none_available():
     router = LLMRouter()
     router.register(UnavailableLLM())
-    with pytest.raises(RuntimeError, match="No LLM provider available"):
+    with pytest.raises(RuntimeError, match="not available"):
         router.select("unavailable")
 
 

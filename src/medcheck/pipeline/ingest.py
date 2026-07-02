@@ -35,6 +35,12 @@ class IngestStep(PipelineStep):
 
         _console.print(f"[bold cyan]IngestStep[/] Using provider: [green]{provider.__class__.__name__}[/]")
 
+        if not provider.authenticate(context.credentials):
+            raise PermissionError(
+                f"Authentication failed for provider '{provider.name}'. "
+                "Check that the required credentials (e.g. --code) are supplied."
+            )
+
         series_list = provider.fetch(context.source, context.credentials)
         context.dicom_series = series_list
 

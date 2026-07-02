@@ -71,3 +71,56 @@ def test_local_provider_invalid_path():
     provider = LocalProvider()
     with pytest.raises(ValueError, match="must be a directory or ZIP"):
         provider.fetch("/nonexistent/path.txt", {})
+
+
+def _write_zip(path: Path, members: dict[str, bytes]) -> None:
+    import zipfile
+
+    with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as zf:
+        for name, data in members.items():
+            zf.writestr(name, data)
+
+
+def test_scan_zip_rejects_traversal(tmp_path: Path):
+    import pytest
+
+    zip_path = tmp_path / "evil.zip"
+    _write_zip(zip_path, {"../escape.dcm": b"x"})
+    with pytest.raises(ValueError, match="Unsafe path"):
+        LocalProvider().fetch(str(zip_path), {})
+
+
+def test_scan_zip_rejects_symlink_members(tmp_path: Path):
+    import zipfile
+
+    import pytest
+
+    zip_path = tmp_path / "symlink.zip"
+    with zipfile.ZipFile(zip_path, "w") as zf:
+        info = zipfile.ZipInfo("link")
+        info.external_attr = 0o120777 << 16  # symlink mode
+        zf.writestr(info, "../../etc")
+    with pytest.raises(ValueError, match="symlink"):
+        LocalProvider().fetch(str(zip_path), {})
+
+
+def test_scan_zip_rejects_zip_bomb_ratio(tmp_path: Path):
+    import pytest
+
+    zip_path = tmp_path / "bomb.zip"
+    _write_zip(zip_path, {"bomb.bin": b"\x00" * (50 * 1024 * 1024)})
+    with pytest.raises(ValueError, match="compression ratio"):
+        LocalProvider().fetch(str(zip_path), {})
+
+
+def test_scan_zip_accepts_normal_archive(tmp_path: Path):
+    dicom_dir = tmp_path / "dicom"
+    dicom_dir.mkdir()
+    _create_test_dicom(dicom_dir / "slice1.dcm", "sag_pd", 1)
+    import zipfile
+
+    zip_path = tmp_path / "study.zip"
+    with zipfile.ZipFile(zip_path, "w") as zf:
+        zf.write(dicom_dir / "slice1.dcm", "series/slice1.dcm")
+    result = LocalProvider().fetch(str(zip_path), {})
+    assert len(result) == 1
