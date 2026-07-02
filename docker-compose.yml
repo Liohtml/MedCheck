@@ -4,7 +4,10 @@ services:
       context: .
       target: lite
     ports:
-      - "8080:8080"
+      # Published on loopback only by default: the API handles PHI and ships
+      # without auth unless MEDCHECK_API_KEY is set. To expose it on the
+      # network, change to "8080:8080" AND set MEDCHECK_API_KEY in .env.
+      - "127.0.0.1:8080:8080"
     env_file: .env
     volumes:
       - ./data:/data:ro
