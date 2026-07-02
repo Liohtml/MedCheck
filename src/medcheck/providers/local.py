@@ -110,7 +110,9 @@ class LocalProvider(DataProvider):
     @staticmethod
     def _try_read(path: Path) -> Any:
         try:
-            ds = pydicom.dcmread(str(path), force=True)
+            # force=False: require a valid DICOM preamble/DICM marker so arbitrary
+            # (potentially hostile) files are rejected instead of best-effort parsed.
+            ds = pydicom.dcmread(str(path), force=False)
             if not hasattr(ds, "PixelData"):
                 return None
             return ds

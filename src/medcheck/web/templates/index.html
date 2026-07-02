@@ -418,13 +418,13 @@
 
   <!-- Wizard tabs -->
   <div class="wizard-tabs">
-    <button class="tab-btn active" onclick="showTab(1, this)">
+    <button type="button" class="tab-btn active" data-goto="1">
       <span class="step-num">1</span> Load Data
     </button>
-    <button class="tab-btn" onclick="showTab(2, this)">
+    <button type="button" class="tab-btn" data-goto="2">
       <span class="step-num">2</span> Clinical Context
     </button>
-    <button class="tab-btn" onclick="showTab(3, this)">
+    <button type="button" class="tab-btn" data-goto="3">
       <span class="step-num">3</span> Analyze
     </button>
   </div>
@@ -436,17 +436,12 @@
       <div class="tab-pane active" id="pane-1">
         <div class="form-group">
           <label>Upload Imaging File</label>
-          <div class="dropzone" id="dropzone"
-               onclick="document.getElementById('fileInput').click()"
-               ondragover="event.preventDefault(); this.classList.add('dragover')"
-               ondragleave="this.classList.remove('dragover')"
-               ondrop="handleDrop(event)">
+          <div class="dropzone" id="dropzone">
             <div class="dropzone-icon">&#x1F9FB;</div>
             <p class="dropzone-hint"><strong>Click to browse</strong> or drag &amp; drop</p>
             <p class="dropzone-hint" id="dropzoneSubtext" style="margin-top:4px;">DICOM, NIfTI, PNG, JPEG, TIFF &mdash; up to 500 MB</p>
             <input type="file" id="fileInput" name="file"
-                   accept=".dcm,.nii,.nii.gz,.png,.jpg,.jpeg,.tiff,.tif"
-                   onchange="fileSelected(this)" />
+                   accept=".dcm,.nii,.nii.gz,.png,.jpg,.jpeg,.tiff,.tif" />
           </div>
           <div class="auto-detect-badge" id="autoDetectBadge" style="display:none;">
             Auto-detect active &mdash; format will be identified automatically
@@ -473,8 +468,7 @@
 
         <div class="wizard-nav">
           <span></span>
-          <button type="button" class="btn btn-primary"
-                  onclick="showTab(2, document.querySelectorAll('.tab-btn')[1])">
+          <button type="button" class="btn btn-primary" data-goto="2">
             Next: Clinical Context &rarr;
           </button>
         </div>
@@ -537,12 +531,10 @@
         </div>
 
         <div class="wizard-nav">
-          <button type="button" class="btn btn-secondary"
-                  onclick="showTab(1, document.querySelectorAll('.tab-btn')[0])">
+          <button type="button" class="btn btn-secondary" data-goto="1">
             &larr; Back
           </button>
-          <button type="button" class="btn btn-primary"
-                  onclick="showTab(3, document.querySelectorAll('.tab-btn')[2])">
+          <button type="button" class="btn btn-primary" data-goto="3">
             Next: Analyze &rarr;
           </button>
         </div>
@@ -615,8 +607,7 @@
         </div>
 
         <div class="wizard-nav">
-          <button type="button" class="btn btn-secondary"
-                  onclick="showTab(2, document.querySelectorAll('.tab-btn')[1])">
+          <button type="button" class="btn btn-secondary" data-goto="2">
             &larr; Back
           </button>
           <button type="submit" class="btn btn-danger" id="startBtn"
@@ -665,64 +656,6 @@
   </div>
 </footer>
 
-<script>
-  // Tab switching
-  function showTab(n, btn) {
-    document.querySelectorAll('.tab-pane').forEach(function(p) {
-      p.classList.remove('active');
-    });
-    document.querySelectorAll('.tab-btn').forEach(function(b) {
-      b.classList.remove('active');
-    });
-    document.getElementById('pane-' + n).classList.add('active');
-    btn.classList.add('active');
-  }
-
-  // File dropzone - use textContent for safe DOM updates
-  function fileSelected(input) {
-    if (input.files && input.files[0]) {
-      var f = input.files[0];
-      var subtext = document.getElementById('dropzoneSubtext');
-      var sizeMB = (f.size / 1024 / 1024).toFixed(2);
-      subtext.textContent = f.name + ' (' + sizeMB + ' MB)';
-      document.getElementById('autoDetectBadge').style.display = 'inline-flex';
-    }
-  }
-
-  function handleDrop(e) {
-    e.preventDefault();
-    document.getElementById('dropzone').classList.remove('dragover');
-    var dt = e.dataTransfer;
-    if (dt && dt.files && dt.files[0]) {
-      document.getElementById('fileInput').files = dt.files;
-      fileSelected(document.getElementById('fileInput'));
-    }
-  }
-
-  // Progress simulation on form submit
-  document.getElementById('analyzeForm').addEventListener('submit', function() {
-    simulateProgress();
-  });
-
-  function simulateProgress() {
-    var fill = document.getElementById('progressFill');
-    var label = document.getElementById('progressLabel');
-    var steps = [
-      [10, 'Uploading data...'],
-      [30, 'Preprocessing imaging data...'],
-      [55, 'Running ML modules...'],
-      [75, 'Querying AI model...'],
-      [90, 'Generating report...'],
-      [100, 'Done!']
-    ];
-    var i = 0;
-    var tick = setInterval(function() {
-      if (i >= steps.length) { clearInterval(tick); return; }
-      fill.style.width = steps[i][0] + '%';
-      label.textContent = steps[i][1];
-      i++;
-    }, 800);
-  }
-</script>
+<script src="/static/app.js" defer></script>
 </body>
 </html>
