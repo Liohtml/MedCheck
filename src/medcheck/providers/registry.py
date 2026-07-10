@@ -1,9 +1,29 @@
 from __future__ import annotations
 
-import re
 from pathlib import Path
+from urllib.parse import urlparse
 
 from medcheck.providers.base import DataProvider
+
+
+def _target_host(target: str) -> str:
+    """Best-effort hostname extraction from a target string.
+
+    Returns an empty string when the target has no parseable host (e.g. it is
+    a filesystem path). Scheme-less URLs like ``portal.example.net/view/x``
+    are only treated as URLs when they do not name an existing local path.
+    """
+    host = urlparse(target).hostname
+    if host:
+        return host
+    if not Path(target).exists():
+        return urlparse("//" + target).hostname or ""
+    return ""
+
+
+def _host_matches(host: str, pattern: str) -> bool:
+    """True if *host* equals *pattern* or is a subdomain of it."""
+    return host == pattern or host.endswith("." + pattern)
 
 
 class ProviderRegistry:
@@ -25,12 +45,15 @@ class ProviderRegistry:
     def detect(self, target: str) -> DataProvider:
         """Auto-detect the appropriate provider for the given target string.
 
-        Tries URL pattern matching first, then falls back to filesystem checks.
+        Tries URL hostname matching first, then falls back to filesystem checks.
         """
-        # Try URL pattern matching against registered providers
-        for _name, cls in self._providers.items():
-            for pattern in cls.url_patterns:
-                if re.search(pattern, target):
+        # Match the target's hostname against registered providers' domains.
+        # Exact-host/subdomain comparison (not regex/substring) so that local
+        # paths merely containing a provider name are not mis-detected.
+        host = _target_host(target)
+        if host:
+            for _name, cls in self._providers.items():
+                if any(_host_matches(host, pattern) for pattern in cls.url_patterns):
                     return cls()
 
         # Fallback: treat as a local path if it resolves to an existing dir or ZIP
