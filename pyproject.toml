@@ -79,7 +79,7 @@ source = ["medcheck"]
 branch = true
 
 [tool.coverage.report]
-fail_under = 80
+fail_under = 85
 
 [tool.ruff]
 line-length = 120
