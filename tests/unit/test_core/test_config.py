@@ -1,3 +1,5 @@
+import pytest
+
 from medcheck.core.config import Settings
 
 
@@ -47,3 +49,29 @@ def test_available_providers(monkeypatch):
     assert "gemini" in providers
     assert "openai" not in providers
     assert "local" in providers
+
+
+def test_malformed_int_env_raises_clear_error(monkeypatch):
+    monkeypatch.setenv("MEDCHECK_PORT", "8080a")
+    with pytest.raises(SystemExit, match="Invalid MEDCHECK_PORT='8080a'"):
+        Settings()
+
+
+def test_malformed_download_cap_raises_clear_error(monkeypatch):
+    monkeypatch.setenv("MEDCHECK_MAX_DOWNLOAD_BYTES", "2GB")
+    with pytest.raises(SystemExit, match="Invalid MEDCHECK_MAX_DOWNLOAD_BYTES='2GB'"):
+        Settings()
+
+
+def test_empty_int_env_uses_default(monkeypatch):
+    monkeypatch.setenv("MEDCHECK_PORT", "")
+    monkeypatch.setenv("MEDCHECK_MAX_VISION_IMAGES", "  ")
+    settings = Settings()
+    assert settings.port == 8080
+    assert settings.max_vision_images == 12
+
+
+def test_int_env_tolerates_whitespace(monkeypatch):
+    monkeypatch.setenv("MEDCHECK_PORT", " 9091 ")
+    settings = Settings()
+    assert settings.port == 9091
