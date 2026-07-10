@@ -121,3 +121,26 @@ def test_call_with_retries_fails_fast_on_non_transient():
         call_with_retries(fn, provider="x", attempts=3, base_delay=0)
     # Non-transient error: no retries.
     assert calls["n"] == 1
+
+
+def test_parse_llm_json_braces_inside_string_values():
+    raw = (
+        '{"overall_impression": "Normal study (note: {contrast} was not administered)",'
+        ' "structures": [{"name": "ACL", "status": "intact", "confidence": 0.9}]}'
+    )
+    result = parse_llm_response(raw)
+    assert "not administered" in result.overall_impression
+    assert len(result.structures) == 1
+    assert result.structures[0].name == "ACL"
+
+
+def test_parse_llm_json_object_after_stray_brace():
+    raw = 'Header {not json. {"overall_impression": "ok", "structures": []}'
+    result = parse_llm_response(raw)
+    assert result.overall_impression == "ok"
+
+
+def test_parse_llm_json_markdown_fenced():
+    raw = 'Here is the analysis:\n```json\n{"overall_impression": "unremarkable", "structures": []}\n```\nDone.'
+    result = parse_llm_response(raw)
+    assert result.overall_impression == "unremarkable"

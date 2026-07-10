@@ -109,17 +109,23 @@ class AnalysisResult:
 
 
 def parse_llm_json(raw: str) -> dict[str, Any]:
-    """Extract and parse the first valid JSON object from *raw* using brace-depth tracking."""
-    start = raw.index("{")
-    depth = 0
-    for i, ch in enumerate(raw[start:], start):
-        if ch == "{":
-            depth += 1
-        elif ch == "}":
-            depth -= 1
-        if depth == 0:
-            result: dict[str, Any] = json.loads(raw[start : i + 1])
+    """Extract and parse the first JSON object embedded in *raw*.
+
+    Uses json's incremental decoder — which is string/escape aware — rather
+    than manual brace counting, so a ``}`` inside a string value (plausible in
+    LLM free-text fields) cannot truncate the object. Candidate ``{`` positions
+    are tried in order until one decodes to an object.
+    """
+    decoder = json.JSONDecoder()
+    pos = raw.find("{")
+    while pos != -1:
+        try:
+            result, _ = decoder.raw_decode(raw, pos)
+        except json.JSONDecodeError:
+            result = None
+        if isinstance(result, dict):
             return result
+        pos = raw.find("{", pos + 1)
     raise ValueError("No valid JSON found")
 
 
