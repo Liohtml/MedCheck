@@ -207,3 +207,120 @@ def test_validate_download_url_accepts_trusted_https(url):
 def test_validate_download_url_rejects_untrusted(url):
     with pytest.raises(ValueError):
         _validate_download_url(url)
+
+
+# ---------------------------------------------------------------------------
+# Portal orchestration (mocked httpx) — #139
+# ---------------------------------------------------------------------------
+
+VALID_CODE = "dz8d-zkg9-4hzc-aosn"
+
+
+def _mock_httpx_client_post(json_data=None, json_exc=None) -> MagicMock:
+    """Build a MagicMock standing in for httpx.Client whose post() returns *json_data*."""
+    resp = MagicMock()
+    resp.raise_for_status.return_value = None
+    if json_exc is not None:
+        resp.json.side_effect = json_exc
+    else:
+        resp.json.return_value = json_data
+    client = MagicMock()
+    client.post.return_value = resp
+    client_cm = MagicMock()
+    client_cm.__enter__ = MagicMock(return_value=client)
+    client_cm.__exit__ = MagicMock(return_value=False)
+    return client_cm
+
+
+def _check_view_code_with(json_data=None, json_exc=None) -> str:
+    provider = EasyRadiologyProvider()
+    client_cm = _mock_httpx_client_post(json_data=json_data, json_exc=json_exc)
+    with patch("medcheck.providers.easyradiology.httpx.Client", return_value=client_cm):
+        return provider._check_view_code(VALID_CODE, "examhash")
+
+
+def test_check_view_code_non_json_body():
+    with pytest.raises(RuntimeError, match="not JSON"):
+        _check_view_code_with(json_exc=ValueError("Expecting value"))
+
+
+def test_check_view_code_empty_exams():
+    with pytest.raises(ValueError, match="No exams found"):
+        _check_view_code_with(json_data={"exams": []})
+
+
+def test_check_view_code_non_dict_payload():
+    with pytest.raises(ValueError, match="No exams found"):
+        _check_view_code_with(json_data=[1, 2, 3])
+
+
+def test_check_view_code_missing_encrypted_key():
+    with pytest.raises(RuntimeError, match="portal API may have changed"):
+        _check_view_code_with(json_data={"exams": [{"somethingElse": True}]})
+
+
+def test_check_view_code_undecryptable_key_hints_wrong_code():
+    import json as jsonlib
+
+    enc = jsonlib.dumps(
+        {
+            "CipherOutputText": b64encode(b"x" * 16).decode(),  # garbage ciphertext
+            "Salt": "00" * 16,
+            "AesRijndaelIv": b64encode(b"\x00" * 16).decode(),
+        }
+    )
+    with pytest.raises(ValueError, match="access code may be wrong"):
+        _check_view_code_with(json_data={"exams": [{"encryptedAccessKey": enc}]})
+
+
+def _get_viewer_model_with(json_data=None, json_exc=None):
+    provider = EasyRadiologyProvider()
+    client_cm = _mock_httpx_client_post(json_data=json_data, json_exc=json_exc)
+    with patch("medcheck.providers.easyradiology.httpx.Client", return_value=client_cm):
+        return provider._get_viewer_model("examhash")
+
+
+def test_get_viewer_model_non_json_body():
+    with pytest.raises(RuntimeError, match="not JSON"):
+        _get_viewer_model_with(json_exc=ValueError("Expecting value"))
+
+
+def test_get_viewer_model_error_flag():
+    with pytest.raises(ValueError, match="Viewer model error"):
+        _get_viewer_model_with(json_data={"hasError": True, "errorMessage": "expired"})
+
+
+def test_get_viewer_model_missing_exams():
+    with pytest.raises(RuntimeError, match="missing exam entry"):
+        _get_viewer_model_with(json_data={"hasError": False})
+
+
+def test_get_viewer_model_non_object_exam():
+    with pytest.raises(RuntimeError, match="expected object"):
+        _get_viewer_model_with(json_data={"exams": ["not-a-dict"]})
+
+
+def test_fetch_requires_access_code():
+    provider = EasyRadiologyProvider()
+    with pytest.raises(ValueError, match="access code is required"):
+        provider.fetch("https://portal.easyradiology.net/View/abc", {})
+
+
+def test_fetch_missing_download_link():
+    provider = EasyRadiologyProvider()
+    with (
+        patch.object(provider, "_check_view_code", return_value="access-key"),
+        patch.object(provider, "_get_viewer_model", return_value={"noLink": True}),
+    ):
+        with pytest.raises(RuntimeError, match="linkToERI"):
+            provider.fetch("https://portal.easyradiology.net/View/abc", {"code": VALID_CODE})
+
+
+def test_decrypt_aes_cbc_empty_ciphertext():
+    with pytest.raises(ValueError, match="positive multiple of 16"):
+        _decrypt_aes_cbc(b64encode(b"").decode(), "pw", "00" * 16, b64encode(b"\x00" * 16).decode())
+
+
+def test_decrypt_aes_cbc_partial_block():
+    with pytest.raises(ValueError, match="positive multiple of 16"):
+        _decrypt_aes_cbc(b64encode(b"short").decode(), "pw", "00" * 16, b64encode(b"\x00" * 16).decode())
