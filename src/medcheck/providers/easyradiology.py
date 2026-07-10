@@ -68,7 +68,7 @@ _MAX_DOWNLOAD_BYTES: int = 2 * 1024 * 1024 * 1024
 def _check_content_length(content_length: str | None, max_bytes: int) -> None:
     """Reject up front if the server advertises a body larger than *max_bytes*.
 
-    An absent, unparseable, or negative length is left to the streamed-byte cap in
+    An absent, unparsable, or negative length is left to the streamed-byte cap in
     ``_write_capped`` rather than trusted here.
     """
     if content_length is None:
