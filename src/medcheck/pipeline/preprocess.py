@@ -1,12 +1,16 @@
 from __future__ import annotations
 
 import re
+from collections import Counter
 from typing import Any
 
 import numpy as np
+from rich.console import Console
 
 from medcheck.core.context import DicomSeries, PipelineContext
 from medcheck.core.step import PipelineStep
+
+console = Console()
 
 # ---------------------------------------------------------------------------
 # Keyword tables
@@ -96,9 +100,28 @@ def _extract_pixel_array(ds: Any) -> np.ndarray[Any, np.dtype[Any]]:
 
 
 def _build_volume(series: DicomSeries) -> np.ndarray:
-    """Sort slices, extract pixel arrays, stack, and normalise to [0, 1]."""
+    """Sort slices, extract pixel arrays, stack, and normalise to [0, 1].
+
+    Slices whose dimensions deviate from the series' dominant shape (mixed
+    matrix sizes, embedded localizers) are dropped with a warning instead of
+    letting ``np.stack`` fail; an empty series raises a descriptive error.
+    """
     sorted_slices = sorted(series.slices, key=_sort_key)
+    if not sorted_slices:
+        raise ValueError("series contains no slices")
     arrays = [_extract_pixel_array(ds) for ds in sorted_slices]
+
+    shape_counts = Counter(arr.shape for arr in arrays)
+    if len(shape_counts) > 1:
+        dominant_shape, _count = shape_counts.most_common(1)[0]
+        kept = [arr for arr in arrays if arr.shape == dominant_shape]
+        dropped = len(arrays) - len(kept)
+        console.print(
+            f"[yellow]Series '{series.description}': dropped {dropped} slice(s) "
+            f"with deviating dimensions (kept {len(kept)} at {dominant_shape}).[/yellow]"
+        )
+        arrays = kept
+
     volume = np.stack(arrays, axis=0)  # shape: (N, H, W)
 
     v_min = volume.min()
@@ -118,7 +141,14 @@ class PreprocessStep(PipelineStep):
 
     def run(self, context: PipelineContext) -> PipelineContext:
         for series in context.dicom_series:
-            context.volumes[series.description] = _build_volume(series)
+            try:
+                context.volumes[series.description] = _build_volume(series)
+            except Exception as exc:
+                # One malformed series must not abort the whole study; surface
+                # the gap in the report's limitations instead.
+                message = f"Series '{series.description}' skipped during preprocessing: {exc}"
+                console.print(f"[yellow]{message}[/yellow]")
+                context.limitations.append(message)
 
         # Detect anatomy from the first series description
         if context.dicom_series:
