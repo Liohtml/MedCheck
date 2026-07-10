@@ -110,6 +110,13 @@ def _decrypt_aes_cbc(ciphertext_b64: str, password: str, salt_hex: str, iv_b64: 
     salt = bytes.fromhex(salt_hex)
     iv = b64decode(iv_b64)
     ct = b64decode(ciphertext_b64)
+    # Validate up front: pycryptodome raises an opaque block-size ValueError on
+    # a non-multiple-of-16 body, and empty input would crash the padding check
+    # below with an IndexError. AES-CBC here is unauthenticated (the protocol
+    # is server-dictated, no MAC), so the manual PKCS7 check is the only
+    # integrity signal and must be robust against malformed input.
+    if not ct or len(ct) % 16 != 0:
+        raise ValueError(f"AES-CBC decryption failed: ciphertext length {len(ct)} is not a positive multiple of 16")
     key = _scrypt_derive(password, salt)
     cipher = AES.new(key, AES.MODE_CBC, iv)
     dec = cipher.decrypt(ct)
@@ -117,6 +124,13 @@ def _decrypt_aes_cbc(ciphertext_b64: str, password: str, salt_hex: str, iv_b64: 
     if 0 < pad <= 16 and all(b == pad for b in dec[-pad:]):
         return dec[:-pad]
     raise ValueError("AES-CBC decryption failed: invalid PKCS7 padding")
+
+
+def _unexpected_response(step: str, detail: str) -> RuntimeError:
+    """Provider-level error for a portal response that doesn't match the protocol."""
+    return RuntimeError(
+        f"Unexpected easyRadiology portal response during {step}: {detail}. The portal API may have changed."
+    )
 
 
 class EasyRadiologyProvider(DataProvider):
@@ -132,11 +146,15 @@ class EasyRadiologyProvider(DataProvider):
         return bool(credentials.get("code"))
 
     def fetch(self, target: str, credentials: dict[str, str]) -> list[DicomSeries]:
-        code = credentials["code"]
+        code = credentials.get("code")
+        if not code:
+            raise ValueError("An access code is required to fetch from the easyRadiology portal")
         exam_hash = self._extract_exam_hash(target)
         access_key = self._check_view_code(code, exam_hash)
         viewer_model = self._get_viewer_model(exam_hash)
-        zip_url = viewer_model["linkToERI"]
+        zip_url = viewer_model.get("linkToERI")
+        if not isinstance(zip_url, str) or not zip_url:
+            raise _unexpected_response("GetViewerModel", "missing download link (linkToERI)")
         return self._download_and_decrypt(zip_url, access_key, exam_hash)
 
     def _extract_exam_hash(self, url: str) -> str:
@@ -153,22 +171,47 @@ class EasyRadiologyProvider(DataProvider):
                 json={"ViewCodeName": view_code, "KeyVerification": key_verification, "WithDeferred": True},
             )
             resp.raise_for_status()
-            data = resp.json()
-        if not data.get("exams"):
+            try:
+                data = resp.json()
+            except ValueError as exc:
+                raise _unexpected_response("CheckViewCode", "response body is not JSON") from exc
+        if not isinstance(data, dict) or not data.get("exams"):
             raise ValueError("No exams found for the provided access code")
-        exam = data["exams"][0]
-        enc = json.loads(exam["encryptedAccessKey"])
-        access_key_bytes = _decrypt_aes_cbc(enc["CipherOutputText"], code, enc["Salt"], enc["AesRijndaelIv"])
-        return access_key_bytes.decode("utf-8")
+        try:
+            enc = json.loads(data["exams"][0]["encryptedAccessKey"])
+            ciphertext = enc["CipherOutputText"]
+            salt_hex = enc["Salt"]
+            iv_b64 = enc["AesRijndaelIv"]
+        except (KeyError, IndexError, TypeError, ValueError) as exc:
+            raise _unexpected_response("CheckViewCode", f"malformed exam entry ({exc.__class__.__name__})") from exc
+        try:
+            access_key_bytes = _decrypt_aes_cbc(ciphertext, code, salt_hex, iv_b64)
+            return access_key_bytes.decode("utf-8")
+        except (ValueError, TypeError) as exc:
+            # Padding/decode failures usually mean a wrong access code, not a
+            # protocol change — keep this distinct from _unexpected_response.
+            raise ValueError(
+                "Could not decrypt the exam access key — the access code may be wrong or the link expired"
+            ) from exc
 
     def _get_viewer_model(self, exam_hash: str) -> dict[str, Any]:
         with httpx.Client(timeout=30.0) as client:
             resp = client.post(f"{self.BASE_URL}/api/viewexam/GetViewerModel", json=[{"ExamHash": exam_hash}])
             resp.raise_for_status()
-            data = resp.json()
+            try:
+                data = resp.json()
+            except ValueError as exc:
+                raise _unexpected_response("GetViewerModel", "response body is not JSON") from exc
+        if not isinstance(data, dict):
+            raise _unexpected_response("GetViewerModel", f"expected a JSON object, got {type(data).__name__}")
         if data.get("hasError"):
             raise ValueError(f"Viewer model error: {data.get('errorMessage', '')}")
-        result: dict[str, Any] = data["exams"][0]
+        try:
+            result = data["exams"][0]
+        except (KeyError, IndexError, TypeError) as exc:
+            raise _unexpected_response("GetViewerModel", f"missing exam entry ({exc.__class__.__name__})") from exc
+        if not isinstance(result, dict):
+            raise _unexpected_response("GetViewerModel", f"exam entry is {type(result).__name__}, expected object")
         return result
 
     def _download_and_decrypt(self, zip_url: str, access_key: str, exam_hash: str) -> list[DicomSeries]:
