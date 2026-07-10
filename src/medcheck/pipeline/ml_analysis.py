@@ -77,56 +77,71 @@ def analyze_signal_intensity(volume: np.ndarray) -> SignalStats:
     )
 
 
+def _resnet_features(volume: np.ndarray) -> np.ndarray:
+    """Extract per-slice features with the ResNet18 extractor (needs torch)."""
+    import torch
+    from torchvision import transforms
+
+    feature_extractor = _get_feature_extractor()
+
+    transform = transforms.Compose(
+        [
+            transforms.Resize((224, 224)),
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+        ]
+    )
+
+    features = []
+    with torch.no_grad():
+        for i in range(volume.shape[0]):
+            sl = volume[i]
+            sl_uint8 = ((sl - sl.min()) / (sl.max() - sl.min() + 1e-8) * 255).astype(np.uint8)
+            img = Image.fromarray(sl_uint8).convert("RGB")
+            tensor = transform(img).unsqueeze(0)
+            feat = feature_extractor(tensor).squeeze().numpy()
+            features.append(feat)
+    return np.array(features)
+
+
+def _statistical_features(volume: np.ndarray) -> np.ndarray:
+    """Per-slice statistical features — the no-torch / offline fallback."""
+    features = []
+    for i in range(volume.shape[0]):
+        sl = volume[i]
+        feat = np.array(
+            [
+                sl.mean(),
+                sl.std(),
+                sl.min(),
+                sl.max(),
+                np.percentile(sl, 25),
+                np.percentile(sl, 50),
+                np.percentile(sl, 75),
+                np.percentile(sl, 95),
+                np.percentile(sl, 99),
+                (sl > sl.mean()).mean(),
+            ],
+            dtype=np.float32,
+        )
+        features.append(feat)
+    return np.array(features)
+
+
 def extract_features(volume: np.ndarray) -> np.ndarray:
     """Extract features per slice using ResNet18 or fallback to simple stats."""
     try:
-        import torch
-        from torchvision import transforms
-
-        feature_extractor = _get_feature_extractor()
-
-        transform = transforms.Compose(
-            [
-                transforms.Resize((224, 224)),
-                transforms.ToTensor(),
-                transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-            ]
+        return _resnet_features(volume)
+    except Exception as exc:
+        # The ResNet path is best-effort: torch may be missing (ImportError),
+        # or the one-time ImageNet weight download may fail in an air-gapped
+        # environment (URLError/OSError/RuntimeError). Any of these must
+        # degrade to the statistical features, not crash the analysis step.
+        reason = f"{exc.__class__.__name__}: {exc}" if str(exc) else exc.__class__.__name__
+        console.print(
+            f"[yellow]Local ML feature extractor unavailable ({reason}); using simple statistical features[/yellow]"
         )
-
-        features = []
-        with torch.no_grad():
-            for i in range(volume.shape[0]):
-                sl = volume[i]
-                sl_uint8 = ((sl - sl.min()) / (sl.max() - sl.min() + 1e-8) * 255).astype(np.uint8)
-                img = Image.fromarray(sl_uint8).convert("RGB")
-                tensor = transform(img).unsqueeze(0)
-                feat = feature_extractor(tensor).squeeze().numpy()
-                features.append(feat)
-        return np.array(features)
-
-    except ImportError:
-        # Fallback: simple statistical features when PyTorch not installed
-        console.print("[yellow]PyTorch not available, using simple statistical features[/yellow]")
-        features = []
-        for i in range(volume.shape[0]):
-            sl = volume[i]
-            feat = np.array(
-                [
-                    sl.mean(),
-                    sl.std(),
-                    sl.min(),
-                    sl.max(),
-                    np.percentile(sl, 25),
-                    np.percentile(sl, 50),
-                    np.percentile(sl, 75),
-                    np.percentile(sl, 95),
-                    np.percentile(sl, 99),
-                    (sl > sl.mean()).mean(),
-                ],
-                dtype=np.float32,
-            )
-            features.append(feat)
-        return np.array(features)
+        return _statistical_features(volume)
 
 
 class MLAnalysisStep(PipelineStep):
