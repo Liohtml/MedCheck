@@ -134,19 +134,46 @@ def _build_volume(series: DicomSeries) -> np.ndarray:
     return volume
 
 
+def _series_keys(series_list: list[DicomSeries]) -> list[str]:
+    """Return one unique, human-readable key per series.
+
+    SeriesDescription (0008,103E) is optional and frequently empty or repeated
+    across series, so it cannot be used as a dict key directly — colliding
+    series would silently overwrite each other downstream (volumes, anomaly
+    scores, report sections). Unique descriptions are kept verbatim; empty
+    ones fall back to the series number, and duplicates get a numeric suffix.
+    """
+    keys: list[str] = []
+    used: set[str] = set()
+    for index, series in enumerate(series_list):
+        base = series.description or f"series-{series.series_number or index + 1}"
+        key = base
+        suffix = 2
+        while key in used:
+            key = f"{base} ({suffix})"
+            suffix += 1
+        used.add(key)
+        keys.append(key)
+    return keys
+
+
 class PreprocessStep(PipelineStep):
     """Build normalised numpy volumes from raw DICOM series."""
 
     name: str = "preprocess"
 
     def run(self, context: PipelineContext) -> PipelineContext:
-        for series in context.dicom_series:
+        # All downstream per-series dicts (volumes, detected_planes, and the
+        # ml/vision results keyed off context.volumes) share these keys.
+        keys = _series_keys(context.dicom_series)
+
+        for key, series in zip(keys, context.dicom_series, strict=True):
             try:
-                context.volumes[series.description] = _build_volume(series)
+                context.volumes[key] = _build_volume(series)
             except Exception as exc:
                 # One malformed series must not abort the whole study; surface
                 # the gap in the report's limitations instead.
-                message = f"Series '{series.description}' skipped during preprocessing: {exc}"
+                message = f"Series '{key}' skipped during preprocessing: {exc}"
                 console.print(f"[yellow]{message}[/yellow]")
                 context.limitations.append(message)
 
@@ -155,8 +182,9 @@ class PreprocessStep(PipelineStep):
             first_desc = context.dicom_series[0].description
             context.detected_anatomy = detect_anatomy(first_desc)
 
-        # Detect plane for every series
-        for series in context.dicom_series:
-            context.detected_planes[series.description] = detect_plane(series.description)
+        # Detect plane for every series (from the real description, keyed by
+        # the same unique key as the volume)
+        for key, series in zip(keys, context.dicom_series, strict=True):
+            context.detected_planes[key] = detect_plane(series.description)
 
         return context

@@ -137,3 +137,48 @@ def test_preprocess_bad_series_does_not_abort_study():
     assert "broken" not in result.volumes
     assert "good" in result.volumes
     assert any("broken" in note for note in result.limitations)
+
+
+def test_preprocess_duplicate_descriptions_keep_all_series():
+    s1 = DicomSeries(
+        description="pd_sag",
+        series_number=1,
+        modality="MR",
+        slices=[_make_slice(instance_num=i, slice_loc=float(i)) for i in range(3)],
+    )
+    s2 = DicomSeries(
+        description="pd_sag",  # identical description — must not overwrite s1
+        series_number=2,
+        modality="MR",
+        slices=[_make_slice(instance_num=i, slice_loc=float(i)) for i in range(4)],
+    )
+    ctx = PipelineContext(dicom_series=[s1, s2])
+
+    result = PreprocessStep().run(ctx)
+
+    assert len(result.volumes) == 2
+    assert result.volumes["pd_sag"].shape[0] == 3
+    assert result.volumes["pd_sag (2)"].shape[0] == 4
+    assert set(result.detected_planes) == {"pd_sag", "pd_sag (2)"}
+
+
+def test_preprocess_empty_descriptions_keep_all_series():
+    s1 = DicomSeries(
+        description="",
+        series_number=4,
+        modality="MR",
+        slices=[_make_slice(instance_num=i, slice_loc=float(i)) for i in range(2)],
+    )
+    s2 = DicomSeries(
+        description="",
+        series_number=0,  # unset series number falls back to positional index
+        modality="MR",
+        slices=[_make_slice(instance_num=i, slice_loc=float(i)) for i in range(2)],
+    )
+    ctx = PipelineContext(dicom_series=[s1, s2])
+
+    result = PreprocessStep().run(ctx)
+
+    assert len(result.volumes) == 2
+    assert "series-4" in result.volumes
+    assert "series-2" in result.volumes
