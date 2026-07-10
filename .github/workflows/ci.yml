@@ -16,7 +16,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v7
-      - run: uv sync --all-extras
+      - run: uv sync --all-extras --locked
       - run: uv run ruff check src/ tests/
       - run: uv run ruff format --check src/ tests/
 
@@ -25,7 +25,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v7
-      - run: uv sync --all-extras
+      - run: uv sync --all-extras --locked
       - run: uv run mypy src/medcheck
 
   security:
@@ -33,7 +33,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v7
-      - run: uv sync --all-extras
+      - run: uv sync --all-extras --locked
       - run: uv run bandit -r src/medcheck -ll -q
 
   test:
@@ -48,7 +48,7 @@ jobs:
       - uses: astral-sh/setup-uv@v7
         with:
           python-version: ${{ matrix.python-version }}
-      - run: uv sync --all-extras
+      - run: uv sync --all-extras --locked
       - run: uv run pytest tests/ --cov=medcheck --cov-report=xml --cov-fail-under=85
       - uses: codecov/codecov-action@v7
         if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.13'

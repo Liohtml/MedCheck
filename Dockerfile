@@ -11,13 +11,13 @@ COPY --from=ghcr.io/astral-sh/uv:0.8.17 /uv /usr/local/bin/uv
 
 # README and LICENSE are referenced by pyproject metadata (readme/license), so
 # they must be present for `uv sync` to build the medcheck package itself.
-COPY pyproject.toml uv.lock* README.md LICENSE ./
+COPY pyproject.toml uv.lock README.md LICENSE ./
 COPY src/ src/
 COPY workflows/ workflows/
 
 # === Lite (cloud APIs only, ~500MB) ===
 FROM base AS lite
-RUN uv sync --no-dev --no-cache \
+RUN uv sync --no-dev --locked --no-cache \
  && chown -R medcheck:medcheck /app
 EXPOSE 8080
 ENV MEDCHECK_HOST=0.0.0.0
@@ -27,7 +27,7 @@ CMD ["uv", "run", "medcheck", "serve"]
 
 # === Full (with local ML models, ~10GB) ===
 FROM base AS full
-RUN uv sync --no-dev --extra local-models --no-cache \
+RUN uv sync --no-dev --extra local-models --locked --no-cache \
  && chown -R medcheck:medcheck /app
 EXPOSE 8080
 ENV MEDCHECK_HOST=0.0.0.0
