@@ -15,7 +15,9 @@ repos:
     rev: v2.4.1
     hooks:
       - id: codespell
-        exclude: "(uv.lock)"
+        # i18n catalogs are legitimately non-English; htmx.min.js is minified
+        # third-party code whose short tokens trip the dictionary.
+        exclude: "(uv.lock|src/medcheck/i18n/(de|fr|es)\\.json|src/medcheck/web/static/htmx\\.min\\.js)"
 
   - repo: local
     hooks:
