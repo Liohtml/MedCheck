@@ -38,7 +38,7 @@ and generate structured, radiology-style reports — from the CLI, a web UI, or 
 - **Clinical context input** — attach symptoms, trauma history, and suspected diagnosis to guide the analysis
 - **Professional reports** — structured PDF/HTML/JSON with findings tables, impression, and limitations
 - **YAML workflow engine** — compose and version-control custom analysis pipelines as code
-- **Web UI + CLI + REST API** — 3-step browser wizard, scriptable CLI, and an HTTP API
+- **Web UI + CLI + REST API** — scriptable CLI today; the 3-step browser wizard and the HTTP analysis endpoint are a preview — running an analysis from the browser/API is not yet wired up ([#157](https://github.com/Liohtml/MedCheck/issues/157))
 
 ---
 
@@ -53,7 +53,17 @@ docker run -p 8080:8080 \
   ghcr.io/liohtml/medcheck:latest
 ```
 
-Open [http://localhost:8080](http://localhost:8080) and follow the 3-step wizard.
+Open [http://localhost:8080](http://localhost:8080) to browse the web UI (preview). Note that
+**running an analysis from the browser is not yet available** — the wizard's Analyze step
+returns `501 Not Implemented` until [#157](https://github.com/Liohtml/MedCheck/issues/157)
+lands. To run an analysis today, use the CLI inside the container:
+
+```bash
+docker run --rm \
+  -v $(pwd)/scans:/data/scans \
+  ghcr.io/liohtml/medcheck:latest \
+  uv run medcheck analyze /data/scans
+```
 
 ### Option 2 — pip install
 
@@ -145,7 +155,7 @@ Run `medcheck analyze --help` for the full list.
 | Endpoint | Description |
 |---|---|
 | `GET /health` | Liveness probe (always public) |
-| `POST /api/analyze` | Run an analysis (JSON body: `source`, `anatomy`, `report_format`, `language`, `allow_cloud_llm`, …) |
+| `POST /api/analyze` | **Not yet implemented — returns `501`** ([#157](https://github.com/Liohtml/MedCheck/issues/157)). Validates the JSON body (`source`, `anatomy`, `report_format`, `language`, `allow_cloud_llm`, …) and enforces auth/rate limits, but does not run an analysis; use `medcheck analyze` instead |
 
 When `MEDCHECK_API_KEY` is set, `/api/*` requires an `X-API-Key` header. Requests
 are rate-limited per client IP (`MEDCHECK_RATE_LIMIT`, default 10/min).

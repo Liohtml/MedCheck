@@ -416,6 +416,17 @@
 <main>
   <p class="page-subtitle">Upload imaging data and run AI-assisted clinical analysis in three steps.</p>
 
+  <!-- Preview notice: remove when the analyze pipeline is wired up (issue #157) -->
+  <div
+    role="note"
+    style="margin: 0 0 1.25rem; padding: 0.75rem 1rem; border: 1px solid #d97706; border-radius: 8px; background: rgba(217, 119, 6, 0.08); font-size: 0.9rem;"
+  >
+    <strong>Preview:</strong> running an analysis from the browser is not yet available &mdash;
+    the Analyze step currently returns <code>501 Not Implemented</code>
+    (<a href="https://github.com/Liohtml/MedCheck/issues/157" rel="noopener">#157</a>).
+    Use the CLI instead: <code>medcheck analyze /path/to/scans</code>.
+  </div>
+
   <!-- Wizard tabs -->
   <div class="wizard-tabs">
     <button type="button" class="tab-btn active" data-goto="1">

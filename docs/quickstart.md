@@ -56,7 +56,7 @@ medcheck interactive
 
 ---
 
-## Web UI
+## Web UI (preview)
 
 Once the server is running (`medcheck serve` or `docker compose up`), open:
 
@@ -64,4 +64,7 @@ Once the server is running (`medcheck serve` or `docker compose up`), open:
 http://localhost:8080
 ```
 
-Upload an image, select the anatomy region, and click **Analyze**. Results are displayed as structured JSON and a plain-language summary.
+> **Note:** the web wizard is a preview. Running an analysis from the browser is
+> not yet available — the Analyze step returns `501 Not Implemented` until
+> [#157](https://github.com/Liohtml/MedCheck/issues/157) lands. Use the CLI
+> (`medcheck analyze SOURCE`, see above) to run analyses today.
