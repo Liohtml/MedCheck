@@ -57,6 +57,13 @@ MedCheck processes medical and health-related queries. Any vulnerability that co
 - **Network exposure is opt-in.** The web server binds to `127.0.0.1` by
   default. When exposing it on the network, set `MEDCHECK_API_KEY` so `/api`
   endpoints require an `X-API-Key` header.
+- **Rate limiting behind a reverse proxy.** The built-in limiter keys on the
+  client socket IP; behind a proxy all clients would share the proxy's IP and
+  one bucket. Set `MEDCHECK_TRUST_PROXY_HEADERS=1` **only** when a trusted
+  proxy fronts the server, so the first `X-Forwarded-For` hop is used instead
+  (client-spoofable without a proxy). In proxied deployments, treat the
+  proxy's own rate limiting as the primary control and the app limiter as a
+  backstop — the in-process limiter is per-worker and not shared state.
 - **Generated reports contain PHI by default.** Reports (JSON/PDF/HTML) embed
   patient name, ID and birth date from the DICOM metadata unless
   `--deidentify` is passed, which replaces them with a stable pseudonym.
