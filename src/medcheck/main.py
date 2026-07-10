@@ -291,6 +291,22 @@ def models() -> None:
 
 @app.command()
 def download_models() -> None:
-    """Download pretrained ML models for local analysis."""
+    """Download and cache the pretrained ML models for local analysis.
+
+    Run this once while online (e.g. before moving to an air-gapped
+    environment); afterwards local ML analysis needs no network access.
+    """
     console.print("[bold blue]MedCheck - Model Download[/bold blue]")
-    console.print("[yellow]Model download coming in next release.[/yellow]")
+    from medcheck.pipeline.ml_analysis import _build_feature_extractor
+
+    try:
+        console.print("Downloading ResNet18 feature-extractor weights (one-time, ~45 MB)...")
+        _build_feature_extractor()
+    except ImportError:
+        console.print("[red]PyTorch is not installed.[/red] Install the local-models extra first:")
+        console.print("  uv sync --extra local-models")
+        raise typer.Exit(code=1) from None
+    except Exception as exc:
+        console.print(f"[red]Download failed:[/red] {exc}")
+        raise typer.Exit(code=1) from None
+    console.print("[green]Done — model weights are cached; local ML analysis now runs fully offline.[/green]")

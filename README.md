@@ -32,7 +32,7 @@ and generate structured, radiology-style reports — from the CLI, a web UI, or 
 
 - **Plug & Play Docker** — single `docker run` command, no local setup required
 - **Multiple data sources** — local DICOM folders/ZIPs, easyRadiology portal links, and custom plugins
-- **Local ML analysis** — on-device anomaly detection and feature extraction; no API key required
+- **Local ML analysis** — on-device anomaly detection and feature extraction; no API key required (one-time model download on first use, or pre-fetch with `medcheck download-models` for offline environments)
 - **Vision-LLM analysis** — Claude Opus 4.8, GPT-5.5, and Gemini 3.5 Flash (opt-in, consent-gated)
 - **Privacy by default** — nothing leaves your machine without explicit consent; `--deidentify` pseudonymizes reports
 - **Clinical context input** — attach symptoms, trauma history, and suspected diagnosis to guide the analysis

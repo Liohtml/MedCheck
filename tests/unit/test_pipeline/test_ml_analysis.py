@@ -90,3 +90,18 @@ def test_ml_step_validate_with_volumes():
 
 def test_ml_step_name():
     assert MLAnalysisStep().name == "ml_analysis"
+
+
+def test_extract_features_falls_back_when_resnet_path_fails():
+    """A weight-download failure (not just missing torch) must degrade gracefully."""
+    volume = np.random.rand(3, 16, 16).astype(np.float32)
+    with patch.object(ml_analysis, "_resnet_features", side_effect=RuntimeError("download.pytorch.org unreachable")):
+        features = ml_analysis.extract_features(volume)
+    assert features.shape == (3, 10)  # statistical fallback: 10 features per slice
+
+
+def test_extract_features_falls_back_on_import_error():
+    volume = np.random.rand(2, 16, 16).astype(np.float32)
+    with patch.object(ml_analysis, "_resnet_features", side_effect=ImportError("No module named 'torch'")):
+        features = ml_analysis.extract_features(volume)
+    assert features.shape == (2, 10)

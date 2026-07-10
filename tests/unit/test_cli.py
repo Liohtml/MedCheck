@@ -97,3 +97,25 @@ def test_cli_models():
     assert "claude" in result.stdout
     assert "openai" in result.stdout
     assert "gemini" in result.stdout
+
+
+def test_download_models_reports_missing_torch(monkeypatch):
+    from unittest.mock import patch as mock_patch
+
+    with mock_patch(
+        "medcheck.pipeline.ml_analysis._build_feature_extractor",
+        side_effect=ImportError("No module named 'torch'"),
+    ):
+        result = runner.invoke(app, ["download-models"])
+    assert result.exit_code == 1
+    assert "PyTorch is not installed" in result.output
+
+
+def test_download_models_caches_weights():
+    from unittest.mock import patch as mock_patch
+
+    with mock_patch("medcheck.pipeline.ml_analysis._build_feature_extractor", return_value=object()) as build:
+        result = runner.invoke(app, ["download-models"])
+    assert result.exit_code == 0
+    build.assert_called_once()
+    assert "cached" in result.output
