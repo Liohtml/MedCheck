@@ -35,6 +35,9 @@ class Settings:
     host: str = field(default_factory=lambda: os.environ.get("MEDCHECK_HOST", "127.0.0.1"))
     port: int = field(default_factory=lambda: _env_int("MEDCHECK_PORT", 8080))
     api_key: str | None = field(default_factory=lambda: os.environ.get("MEDCHECK_API_KEY"))
+    # Trust X-Forwarded-For from a fronting reverse proxy (rate-limit keying).
+    # Off by default: without a trusted proxy the header is client-spoofable.
+    trust_proxy_headers: bool = field(default_factory=lambda: _env_flag("MEDCHECK_TRUST_PROXY_HEADERS"))
     # Consent gate: patient-derived data is only sent to external cloud LLM APIs
     # when this is explicitly enabled (MEDCHECK_ALLOW_EXTERNAL_LLM=1).
     allow_external_llm: bool = field(default_factory=lambda: _env_flag("MEDCHECK_ALLOW_EXTERNAL_LLM"))

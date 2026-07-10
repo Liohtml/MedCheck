@@ -193,6 +193,7 @@ cp .env.example .env
 | `MEDCHECK_PORT` | `8080` | Bind port |
 | `MEDCHECK_API_KEY` | — | When set, `/api` requires an `X-API-Key` header |
 | `MEDCHECK_RATE_LIMIT` | `10` | `POST /api/analyze` requests per IP per minute (`0` = off) |
+| `MEDCHECK_TRUST_PROXY_HEADERS` | off | Key the rate limiter on the first `X-Forwarded-For` hop (`1` — only behind a trusted reverse proxy) |
 | `MEDCHECK_MAX_VISION_IMAGES` | `12` | Max slice images sent to the LLM per analysis |
 | `MEDCHECK_MAX_DOWNLOAD_BYTES` | 2 GiB | Cap on portal exam-ZIP downloads |
 

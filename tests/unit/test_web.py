@@ -178,6 +178,45 @@ def test_analyze_rate_limited(monkeypatch):
     assert statuses[4] == 429
 
 
+# --- Rate limiting behind a reverse proxy (issue #142) ---
+
+
+def test_rate_limit_ignores_forwarded_header_by_default(monkeypatch):
+    # X-Forwarded-For is client-spoofable; without the trust flag it must NOT
+    # create fresh buckets (else the limiter is trivially bypassed).
+    monkeypatch.setenv("MEDCHECK_RATE_LIMIT", "2")
+    client = TestClient(create_app(Settings(api_key=None, trust_proxy_headers=False)))
+    statuses = [
+        client.post("/api/analyze", json=_VALID_BODY, headers={"X-Forwarded-For": f"10.0.0.{i}"}).status_code
+        for i in range(4)
+    ]
+    assert statuses == [501, 501, 429, 429]
+
+
+def test_rate_limit_keys_on_forwarded_hop_when_proxy_trusted(monkeypatch):
+    # With a trusted proxy, distinct clients (distinct first hops) must not
+    # share one bucket even though every request has the same socket IP.
+    monkeypatch.setenv("MEDCHECK_RATE_LIMIT", "2")
+    client = TestClient(create_app(Settings(api_key=None, trust_proxy_headers=True)))
+    for i in range(4):
+        resp = client.post("/api/analyze", json=_VALID_BODY, headers={"X-Forwarded-For": f"10.0.0.{i}, 172.16.0.1"})
+        assert resp.status_code == 501  # each client has its own bucket
+
+    # ...while one client hammering does get limited.
+    statuses = [
+        client.post("/api/analyze", json=_VALID_BODY, headers={"X-Forwarded-For": "10.0.0.99"}).status_code
+        for _ in range(3)
+    ]
+    assert statuses == [501, 501, 429]
+
+
+def test_rate_limit_trusted_proxy_missing_header_falls_back_to_socket_ip(monkeypatch):
+    monkeypatch.setenv("MEDCHECK_RATE_LIMIT", "2")
+    client = TestClient(create_app(Settings(api_key=None, trust_proxy_headers=True)))
+    statuses = [client.post("/api/analyze", json=_VALID_BODY).status_code for _ in range(3)]
+    assert statuses == [501, 501, 429]
+
+
 # --- Per-request cloud LLM consent (issue #63) ---
 
 

@@ -155,6 +155,23 @@ class _RateLimiter:
             return True
 
 
+def _client_key(request: Request, trust_proxy_headers: bool) -> str:
+    """Rate-limit bucket key for a request.
+
+    Behind a reverse proxy every request arrives from the proxy's socket IP,
+    which would collapse all clients into one shared bucket. When the operator
+    explicitly declares the proxy trusted (MEDCHECK_TRUST_PROXY_HEADERS), use
+    the first hop of X-Forwarded-For instead. Never trust the header by
+    default — without a proxy in front it is trivially client-spoofable.
+    """
+    if trust_proxy_headers:
+        forwarded = request.headers.get("x-forwarded-for", "")
+        first_hop = forwarded.split(",")[0].strip()
+        if first_hop:
+            return first_hop
+    return request.client.host if request.client else "unknown"
+
+
 def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or Settings()
     app = FastAPI(title="MedCheck", version=__version__)
@@ -167,7 +184,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     rate_limiter = _RateLimiter(limit=int(os.environ.get("MEDCHECK_RATE_LIMIT", "10")))
 
     def enforce_rate_limit(request: Request) -> None:
-        client_ip = request.client.host if request.client else "unknown"
+        client_ip = _client_key(request, settings.trust_proxy_headers)
         if not rate_limiter.allow(client_ip):
             raise HTTPException(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
