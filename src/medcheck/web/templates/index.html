@@ -1,669 +1,1353 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ lang }}">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>MedCheck &ndash; AI Medical Imaging Analysis</title>
+  <title>{{ t.ui_title }}</title>
+  <!-- Served from /static so the strict CSP (default-src 'self', no data: URIs) allows it. -->
+  <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
   <!-- htmx is vendored locally (no CDN dependency); works in air-gapped deployments.
        integrity guards against accidental tampering of the served asset. -->
   <script src="/static/htmx.min.js"
           integrity="sha384-ujb1lZYygJmzgSwoxRggbCHcjc0rB2XoQrxeTUQyRjrOnlCoYta87iKBWq3EsdM2"
           crossorigin="anonymous" defer></script>
   <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
+    /* ═══════════════════════════════════════════════════════
+       Metzler Design System — Design Tokens (v1.3)
+       Base: 16px = 1rem · Font: system Helvetica/Arial stack
+    ═══════════════════════════════════════════════════════ */
     :root {
-      --bg:        #1a1a2e;
-      --card:      #16213e;
-      --accent:    #0f3460;
-      --highlight: #e94560;
-      --blue:      #4e8cff;
-      --text:      #e0e0f0;
-      --muted:     #8888aa;
-      --border:    #2a2a4a;
-      --radius:    12px;
-      --shadow:    0 4px 24px rgba(0,0,0,0.4);
+      --font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+
+      --font-regular: 400;
+      --font-bold:    600;
+      --font-strong:  800;
+
+      --text-h1-size:   1.875rem;
+      --text-h1-weight: 700;
+      --text-h1-lh:     1.25;
+      --text-h2-size:   1.5rem;
+      --text-h2-weight: 700;
+      --text-h2-lh:     1.3;
+      --text-h3-size:   1.25rem;
+      --text-h3-weight: 700;
+      --text-h3-lh:     1.35;
+      --text-h4-size:   1.125rem;
+      --text-h4-weight: 700;
+      --text-h4-lh:     1.375;
+
+      --text-body-size:   1rem;
+      --text-body-weight: 400;
+      --text-body-lh:     1.55;
+      --text-body-sm-size: 0.875rem;
+      --text-body-sm-lh:   1.5;
+      --text-caption-size: 0.75rem;
+      --text-caption-lh:   1.4;
+
+      --color-teal-50:  #F2F6F6;
+      --color-teal-75:  #E3F2F0;
+      --color-teal-100: #E6EEEE;
+      --color-teal:     #015253;
+      --color-teal-500: #015253;
+      --color-teal-600: #014A4B;
+      --color-teal-700: #01292A;
+      --color-teal-900: #001D1D;
+      /* Compatibility alias used by the canonical stepper component CSS */
+      --color-teal-dark: var(--color-teal-700);
+
+      --color-metzler-rot:   #D42924;
+      --color-digital-black: #1A171B;
+
+      --color-green:       #009951;
+      --color-green-muted: rgba(0,153,81,0.5);
+
+      --color-red-50:  #FFF0EF;
+      --color-red:     #D42924;
+      --color-red-600: #B52320;
+      --color-red-900: #4D0E0D;
+
+      --color-mint: #5CDBD3;
+      --color-star: #FFC041;
+
+      --color-paper:        #F5F6FA;
+      --color-graphite-100: #F0F0F0;
+      --color-graphite-200: #E6E6E8;
+      --color-graphite-300: #DADADA;
+      --color-graphite-400: #BFBFC2;
+      --color-graphite-450: #CCCCCC;
+      --color-graphite-500: #A1A1A1;
+      --color-graphite-600: #6A6A6A;
+      --color-graphite-700: #54545C;
+      --color-graphite-800: #2E2E36;
+      --color-graphite-850: #333333;
+      --color-graphite-900: #1A1A1F;
+
+      --color-black: #000000;
+      --color-white: #FFFFFF;
+
+      --gradient-brand:  linear-gradient(90deg, #01292A 0%, #011D1E 50%, #000000 100%);
+      --gradient-accent: linear-gradient(135deg, #5CDBD3, #015253);
+
+      --radius-sm:   0.125rem;
+      --radius:      0.25rem;
+      --radius-lg:   0.5rem;
+      --radius-xl:   0.75rem;
+      --radius-pill: 624.94rem;
+
+      --shadow-card:  0 0.125rem 0.5rem rgba(0,0,0,0.08);
+      --shadow-hover: 0 0.25rem 1.25rem rgba(0,0,0,0.10);
+      --shadow-modal: 0 1.25rem 3.75rem rgba(0,0,0,0.2), 0 0.25rem 1rem rgba(0,0,0,0.1);
+
+      --space-1:  0.25rem;
+      --space-2:  0.5rem;
+      --space-3:  0.75rem;
+      --space-4:  1rem;
+      --space-5:  1.25rem;
+      --space-6:  1.5rem;
+      --space-8:  2rem;
+      --space-10: 2.5rem;
+      --space-12: 3rem;
+      --space-16: 4rem;
+
+      /* Semantic aliases */
+      --btn-primary-bg:       var(--color-teal);
+      --btn-primary-bg-hover: var(--color-teal-600);
+      --btn-primary-color:    var(--color-white);
+      --text-heading-color:   var(--color-graphite-900);
+      --text-body-color:      var(--color-graphite-800);
+      --text-muted-color:     var(--color-graphite-600);
+      --text-placeholder:     var(--color-graphite-500);
+      --text-link:            var(--color-teal);
+      --surface-page:         var(--color-paper);
+      --surface-card:         var(--color-white);
+      --surface-input-border: var(--color-graphite-300);
+      --surface-input-focus:  var(--color-teal);
+      --status-success:       var(--color-green);
+      --status-error:         var(--color-red);
+      --status-warning:       #E67E00;
+      --status-info:          var(--color-teal);
     }
 
+    @media (max-width: 991px) {
+      :root {
+        --text-h1-size: 1.625rem;
+        --text-h2-size: 1.375rem;
+        --text-h3-size: 1.1875rem;
+        --text-h4-size: 1.0625rem;
+      }
+    }
+    @media (max-width: 767px) {
+      :root {
+        --text-h1-size: 1.5rem;
+        --text-h2-size: 1.25rem;
+        --text-h3-size: 1.125rem;
+        --text-h4-size: 1rem;
+      }
+    }
+
+    /* ── Base ─────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; }
     body {
-      background: var(--bg);
-      color: var(--text);
-      font-family: 'Segoe UI', system-ui, sans-serif;
+      margin: 0;
+      background: var(--surface-page);
+      color: var(--text-body-color);
+      font-family: var(--font-family);
+      font-size: var(--text-body-size);
+      line-height: var(--text-body-lh);
       min-height: 100vh;
       display: flex;
       flex-direction: column;
     }
+    main { flex: 1; }
+    h1 { font-size: var(--text-h1-size); font-weight: var(--text-h1-weight); line-height: var(--text-h1-lh); letter-spacing: -0.02em;  color: var(--text-heading-color); margin: 0; }
+    h2 { font-size: var(--text-h2-size); font-weight: var(--text-h2-weight); line-height: var(--text-h2-lh); letter-spacing: -0.015em; color: var(--text-heading-color); margin: 0; }
+    h3 { font-size: var(--text-h3-size); font-weight: var(--text-h3-weight); line-height: var(--text-h3-lh); letter-spacing: -0.01em;  color: var(--text-heading-color); margin: 0; }
+    p { margin: 0; }
+    a { color: var(--text-link); }
+    code {
+      font-size: var(--text-body-sm-size);
+      background: rgba(0,0,0,0.06);
+      border-radius: var(--radius-sm);
+      padding: 0.0625rem 0.375rem;
+    }
 
-    /* ── Header ─────────────────────────────────────────── */
-    header {
-      background: var(--card);
-      border-bottom: 1px solid var(--border);
-      padding: 1rem 2rem;
+    /* ── Container & sections ─────────────────────────────── */
+    .container {
+      max-width: 100rem;
+      margin: 0 auto;
+      padding: 0 4rem;
+    }
+    .section     { padding: 4rem 0; }
+    .section--sm { padding: 2.5rem 0; }
+    .section--lg { padding: 6rem 0; }
+    @media (max-width: 48rem) {
+      .container   { padding: 0 1.5rem; }
+      .section     { padding: 2.5rem 0; }
+      .section--sm { padding: 1.75rem 0; }
+      .section--lg { padding: 3.5rem 0; }
+    }
+
+    /* Single content column — left edge aligns with the logo */
+    .page-col { max-width: 56rem; }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--space-4);
+    }
+    @media (max-width: 48rem) {
+      .grid-2 { grid-template-columns: 1fr; }
+      .hide-mobile { display: none !important; }
+    }
+
+    /* ── Section intro (overline + heading + lead) ────────── */
+    .overline {
+      font-size: var(--text-caption-size);
+      font-weight: 700;
+      line-height: var(--text-caption-lh);
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--color-graphite-600);
+      margin: 0;
+    }
+    .section-intro .overline { margin-bottom: 0.5rem; }
+    .section-intro h1 { margin-bottom: 0.625rem; }
+    .section-intro__lead {
+      color: var(--color-graphite-700);
+      font-size: 1.125rem;
+      line-height: 1.5;
+      margin: 0;
+    }
+
+    /* ── Header ───────────────────────────────────────────── */
+    .site-header {
+      background: var(--color-white);
+      border-bottom: 0.0625rem solid var(--color-graphite-200);
+      position: relative;
+      z-index: 100;
+    }
+    .site-header.is-sticky {
+      position: sticky;
+      top: 0;
+      box-shadow: 0 0.125rem 0.5rem rgba(0,0,0,0.08);
+    }
+    .header-inner {
+      height: 4rem;
       display: flex;
       align-items: center;
-      gap: 1rem;
-      box-shadow: var(--shadow);
+      gap: var(--space-5);
     }
-    .logo-text {
-      font-size: 1.6rem;
-      font-weight: 800;
-      letter-spacing: -0.5px;
-      color: #fff;
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.625rem;
+      text-decoration: none;
+      flex-shrink: 0;
     }
-    .logo-text span { color: var(--blue); }
-    .version-badge {
-      background: var(--accent);
-      color: var(--blue);
-      font-size: 0.7rem;
-      font-weight: 700;
-      padding: 2px 8px;
-      border-radius: 20px;
-      letter-spacing: 0.5px;
+    .brand-mark {
+      font-size: 1.25rem;
+      font-weight: var(--font-strong);
+      letter-spacing: -0.01em;
+      color: var(--color-digital-black);
+    }
+    .brand-mark span { color: var(--color-teal); }
+    .header-tagline {
+      font-size: var(--text-body-sm-size);
+      color: var(--color-graphite-600);
     }
     .header-spacer { flex: 1; }
-    .header-tag {
-      font-size: 0.8rem;
-      color: var(--muted);
-    }
-
-    /* ── Main Layout ────────────────────────────────────── */
-    main {
-      flex: 1;
-      max-width: 900px;
-      width: 100%;
-      margin: 2.5rem auto;
-      padding: 0 1.5rem;
-    }
-
-    .page-subtitle {
-      color: var(--muted);
-      margin-bottom: 2rem;
-      font-size: 0.95rem;
-    }
-
-    /* ── Wizard Tabs ────────────────────────────────────── */
-    .wizard-tabs {
-      display: flex;
-      gap: 0;
-      margin-bottom: -1px;
-    }
-    .tab-btn {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-bottom: none;
-      color: var(--muted);
-      cursor: pointer;
-      font-size: 0.9rem;
-      font-weight: 600;
-      padding: 0.75rem 1.5rem;
-      border-radius: var(--radius) var(--radius) 0 0;
-      transition: all 0.2s;
+    .lang-switch {
       display: flex;
       align-items: center;
-      gap: 0.5rem;
+      gap: var(--space-3);
+    }
+    .lang-switch a {
+      font-size: var(--text-caption-size);
+      font-weight: 500;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--color-graphite-600);
+      text-decoration: none;
+      padding: var(--space-1) var(--space-2);
+      border-radius: var(--radius);
+      transition: color 0.14s, background 0.14s;
+    }
+    .lang-switch a:hover { color: var(--color-teal); background: var(--color-teal-50); }
+    .lang-switch a[aria-current="true"] {
+      color: var(--color-teal);
+      font-weight: 700;
+      background: var(--color-teal-100);
+    }
+    @media (max-width: 48rem) {
+      .header-inner { height: 3.125rem; gap: 0.625rem; }
+      .lang-switch { gap: 0.125rem; }
+      .lang-switch a { padding: 0.25rem 0.375rem; letter-spacing: 0.05em; }
+    }
+
+    /* ── Badge ────────────────────────────────────────────── */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0.3125rem 0.75rem;
+      border-radius: var(--radius-sm);
+      font-size: 0.75rem;
+      font-weight: 500;
+      line-height: 1;
+    }
+    .badge--outlined {
+      background: var(--color-white);
+      color: var(--color-teal);
+      border: 0.0625rem solid var(--color-teal);
+    }
+
+    /* ── Alerts ───────────────────────────────────────────── */
+    .alert {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.75rem;
+      border-radius: var(--radius);
+      border: 0.0625rem solid transparent;
+      border-left-width: 0.25rem;
+      padding: 0.875rem 1rem;
+      font-family: var(--font-family);
+      font-size: 0.9375rem;
+      line-height: 1.6;
       position: relative;
     }
-    .tab-btn .step-num {
-      background: var(--accent);
-      color: var(--blue);
-      border-radius: 50%;
-      width: 22px;
-      height: 22px;
+    .alert-success { background: #F0FDF4; border-color: var(--color-green); color: #14532D; }
+    .alert-danger  { background: #FFF1F1; border-color: #C90000; color: #4A0000; }
+    .alert-warning { background: #FFFBEB; border-color: #F59E0B; color: #78350F; }
+    .alert-info    { background: var(--color-teal-100); border-color: var(--color-teal); color: #012F30; }
+    .alert-heading { font-size: 1rem; font-weight: 700; margin: 0 0 0.5rem; }
+    .alert-link { font-weight: 600; text-decoration: underline; }
+    .alert-success .alert-link { color: #15803D; }
+    .alert-danger  .alert-link { color: #B52320; }
+    .alert-warning .alert-link { color: #D97706; }
+    .alert-info    .alert-link { color: var(--color-teal-600); }
+    .alert-divider {
+      border: none;
+      border-top: 0.0625rem solid currentColor;
+      opacity: 0.25;
+      margin: 0.625rem 0;
+    }
+    .alert__icon { flex-shrink: 0; width: 1.25rem; height: 1.25rem; margin-top: 0.125rem; }
+    .alert__icon svg { width: 100%; height: 100%; display: block; }
+
+    /* ── Stepper (canonical PDP stepper) ──────────────────── */
+    .pdp-stepper { width: 100%; }
+    .pdp-stepper-inner {
+      display: flex;
+      align-items: stretch;
+      background: var(--color-teal);
+      border-radius: 0.5rem;
+      overflow: hidden;
+      height: 3.5rem;
+    }
+    .pdp-stepper-step {
+      flex: 1 1 0;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 0.75rem;
+      gap: 0.375rem;
+      padding: 0 1.25rem;
+      background: transparent;
+      border: none;
+      color: rgba(255, 255, 255, 0.55);
+      font-family: var(--font-family);
+      font-size: 1rem;
+      cursor: pointer;
+      transition: color 0.15s, background 0.2s;
+      z-index: 1;
+    }
+    .pdp-stepper-step.active {
+      background: var(--color-teal-dark);
+      color: #fff;
+      clip-path: polygon(
+        0 0,
+        calc(100% - 0.75rem) 0,
+        100% 50%,
+        calc(100% - 0.75rem) 100%,
+        0 100%
+      );
+      padding-right: calc(1.25rem + 0.75rem);
+      z-index: 2;
+    }
+    .pdp-stepper-step.completed { color: rgba(255, 255, 255, 0.85); }
+    .pdp-stepper-num { font-weight: 700; }
+    .pdp-stepper-label { font-weight: 400; }
+    .pdp-stepper-step:not(.active) .pdp-stepper-label { display: none; }
+    .pdp-stepper-sep {
+      display: flex;
+      align-items: center;
+      flex-shrink: 0;
+      color: rgba(255, 255, 255, 0.3);
+    }
+    .pdp-stepper-sep svg { width: 0.5rem; height: 1rem; }
+    @media (max-width: 48rem) {
+      .pdp-stepper-step { padding: 0 0.75rem; font-size: 0.875rem; }
+      .pdp-stepper-step.active { padding-right: calc(0.75rem + 0.75rem); }
+      .pdp-stepper-label { white-space: nowrap; }
+    }
+
+    /* ── Cards ────────────────────────────────────────────── */
+    .card {
+      background: var(--color-white);
+      border: 0.0625rem solid var(--color-graphite-200);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      transition: box-shadow 0.18s, border-color 0.18s;
+    }
+    .card:hover {
+      box-shadow: var(--shadow-hover);
+      border-color: var(--color-graphite-300);
+    }
+    .card__body          { padding: 1.5rem; }
+    .card__body--loose   { padding: 2rem 2.5rem; }
+    @media (max-width: 48rem) {
+      .card__body--loose { padding: 1.5rem 1.25rem; }
+    }
+    .card-icon {
+      width: 2.5rem; height: 2.5rem;
+      border-radius: var(--radius-lg);
+      background: rgba(1,82,83,0.08);
+      color: var(--color-teal);
+      display: inline-flex; align-items: center; justify-content: center;
       flex-shrink: 0;
     }
-    .tab-btn.active {
-      background: var(--accent);
-      color: #fff;
-      border-color: var(--accent);
+    .card-icon svg { width: 1.375rem; height: 1.375rem; }
+
+    /* ── Form inputs — floating label (canonical) ─────────── */
+    .form-control {
+      display: block; width: 100%;
+      padding: 0.7rem 0.9375rem;
+      font-family: var(--font-family); font-size: 1rem;
+      color: var(--color-digital-black); background: var(--color-white);
+      border: 0.0625rem solid var(--color-graphite-300);
+      border-radius: var(--radius);
+      box-sizing: border-box; outline: none;
+      transition: border-color 0.15s;
     }
-    .tab-btn.active .step-num {
-      background: var(--blue);
-      color: #fff;
+    .form-control:focus { border-color: var(--color-teal); }
+    .form-control.error { border-color: var(--color-red); }
+
+    .field-wrapper { position: relative; }
+    .field-wrapper label {
+      position: absolute; left: 0.9375rem; top: 50%;
+      transform: translateY(-50%);
+      font-family: var(--font-family); font-size: 1rem;
+      color: var(--color-graphite-500);
+      pointer-events: none; transition: all 0.15s ease;
+      background: transparent; padding: 0;
+      line-height: 1.4; white-space: nowrap; z-index: 1;
     }
-    .tab-btn:hover:not(.active) {
-      color: var(--text);
-      background: #1e2d50;
+    .field-wrapper .form-control:focus + label,
+    .field-wrapper .form-control:not(:placeholder-shown) + label {
+      top: -0.5625rem; left: 0.6875rem;
+      transform: none; font-size: 0.75rem;
+      color: var(--color-digital-black);
+      background: var(--color-white); padding: 0 0.3125rem;
+    }
+    .field__hint {
+      display: block; margin-top: 0.3125rem;
+      font-family: var(--font-family); font-size: 0.8125rem;
+      color: var(--color-graphite-600); line-height: 1.45;
     }
 
-    /* ── Wizard Card ────────────────────────────────────── */
-    .wizard-card {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 0 var(--radius) var(--radius) var(--radius);
-      padding: 2rem;
-      box-shadow: var(--shadow);
+    /* Extension for controls where :placeholder-shown cannot apply
+       (select, date, textarea-with-content): label is always floated. */
+    .field-wrapper--static label {
+      top: -0.5625rem; left: 0.6875rem;
+      transform: none; font-size: 0.75rem;
+      color: var(--color-digital-black);
+      background: var(--color-white); padding: 0 0.3125rem;
     }
-    .tab-pane { display: none; }
-    .tab-pane.active { display: block; }
+    .field-wrapper textarea.form-control { resize: vertical; min-height: 5.5rem; }
+    .field-wrapper--textarea label { top: 1.375rem; }
+    .field-wrapper--textarea .form-control:focus + label,
+    .field-wrapper--textarea .form-control:not(:placeholder-shown) + label { top: -0.5625rem; }
+    select.form-control { appearance: none; }
+    .field-wrapper--select::after {
+      content: '';
+      position: absolute;
+      right: 0.9375rem; top: 50%;
+      width: 0.5rem; height: 0.5rem;
+      border-right: 0.125rem solid var(--color-graphite-600);
+      border-bottom: 0.125rem solid var(--color-graphite-600);
+      transform: translateY(-70%) rotate(45deg);
+      pointer-events: none;
+    }
 
-    /* ── Form Elements ──────────────────────────────────── */
-    .form-group {
-      margin-bottom: 1.4rem;
-    }
-    label {
-      display: block;
-      font-size: 0.85rem;
-      font-weight: 600;
-      color: var(--muted);
-      text-transform: uppercase;
-      letter-spacing: 0.6px;
-      margin-bottom: 0.45rem;
-    }
-    input[type="text"],
-    input[type="url"],
-    input[type="date"],
-    textarea,
-    select {
-      width: 100%;
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      color: var(--text);
-      font-size: 0.95rem;
-      padding: 0.65rem 0.9rem;
-      transition: border-color 0.2s;
-      font-family: inherit;
-    }
-    input:focus, textarea:focus, select:focus {
-      outline: none;
-      border-color: var(--blue);
-      box-shadow: 0 0 0 3px rgba(78,140,255,0.15);
-    }
-    textarea { resize: vertical; min-height: 90px; }
-    select option { background: var(--card); }
+    .field-stack { display: flex; flex-direction: column; gap: var(--space-5); }
 
-    .input-row {
+    /* ── Checkboxes (canonical sizing; real inputs for forms) ── */
+    .checkbox-wrapper {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5625rem;
+      cursor: pointer;
+      font-family: var(--font-family);
+      font-size: 1rem;
+      color: var(--color-digital-black);
+      user-select: none;
+    }
+    .checkbox-input {
+      position: absolute;
+      opacity: 0;
+      width: 0.0625rem; height: 0.0625rem;
+    }
+    .checkbox {
+      width: 1.5625rem;
+      height: 1.5625rem;
+      border-radius: 0.25rem;
+      border: 0.0625rem solid var(--color-graphite-300);
+      background: var(--color-white);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      box-sizing: border-box;
+      transition: background 0.12s;
+      color: var(--color-white);
+    }
+    .checkbox svg { display: none; width: 1rem; height: 1rem; }
+    .checkbox-input:checked + .checkbox.checkbox--config { background: var(--color-green); border-color: var(--color-green); }
+    .checkbox-input:checked + .checkbox.checkbox--filter { background: var(--color-teal); border-color: var(--color-teal); }
+    .checkbox-input:checked + .checkbox svg { display: block; }
+    .checkbox-input:focus-visible + .checkbox {
+      outline: 0.125rem solid var(--color-teal);
+      outline-offset: 0.125rem;
+    }
+
+    /* Module tiles — selectable option cards built on kit tokens */
+    .modules-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 1rem;
+      gap: var(--space-3);
+    }
+    @media (max-width: 48rem) {
+      .modules-grid { grid-template-columns: 1fr; }
+    }
+    .module-tile {
+      display: flex;
+      align-items: center;
+      gap: 0.5625rem;
+      border: 0.0625rem solid var(--color-graphite-300);
+      border-radius: var(--radius);
+      padding: 0.625rem 0.9375rem;
+      background: var(--color-white);
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .module-tile:hover { border-color: var(--color-teal); }
+    .module-tile:has(.checkbox-input:checked) {
+      border-color: var(--color-green);
+      background: var(--color-teal-50);
     }
 
-    /* ── Dropzone ───────────────────────────────────────── */
+    /* ── Dropzone ─────────────────────────────────────────── */
     .dropzone {
-      border: 2px dashed var(--border);
-      border-radius: var(--radius);
-      padding: 2.5rem 1.5rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: var(--space-3);
+      border: 0.125rem dashed var(--color-graphite-300);
+      border-radius: var(--radius-lg);
+      padding: var(--space-8) var(--space-6);
       text-align: center;
       cursor: pointer;
-      transition: all 0.2s;
-      background: rgba(15,52,96,0.2);
+      background: var(--color-white);
+      transition: border-color 0.15s, background 0.15s;
     }
     .dropzone:hover, .dropzone.dragover {
-      border-color: var(--blue);
-      background: rgba(78,140,255,0.08);
+      border-color: var(--color-teal);
+      background: var(--color-teal-50);
     }
-    .dropzone-icon { font-size: 2.5rem; margin-bottom: 0.5rem; }
-    .dropzone-hint { color: var(--muted); font-size: 0.9rem; }
-    .dropzone-hint strong { color: var(--blue); }
+    .dropzone:focus-visible {
+      outline: 0.125rem solid var(--color-teal);
+      outline-offset: 0.125rem;
+    }
     .dropzone input[type="file"] { display: none; }
+    .dropzone-text { font-size: 1rem; color: var(--color-graphite-800); }
+    .dropzone-text strong { color: var(--color-teal); font-weight: 700; }
+    .dropzone-meta { font-size: 0.8125rem; color: var(--color-graphite-600); }
+    .autodetect {
+      display: none;
+      align-items: center;
+      gap: 0.375rem;
+      font-size: 0.8125rem;
+      color: var(--color-green);
+      margin-top: var(--space-2);
+    }
+    .autodetect.is-visible { display: inline-flex; }
+    .autodetect svg { width: 1rem; height: 1rem; flex-shrink: 0; }
 
     .or-divider {
       display: flex;
       align-items: center;
-      gap: 1rem;
-      margin: 1.2rem 0;
-      color: var(--muted);
-      font-size: 0.8rem;
+      gap: var(--space-4);
+      margin: var(--space-5) 0;
+      color: var(--color-graphite-600);
+      font-size: var(--text-caption-size);
+      font-weight: 700;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
     }
     .or-divider::before, .or-divider::after {
       content: '';
       flex: 1;
-      height: 1px;
-      background: var(--border);
+      height: 0.0625rem;
+      background: var(--color-graphite-200);
     }
 
-    /* ── Auto-detect badge ──────────────────────────────── */
-    .auto-detect-badge {
+    /* ── Buttons (canonical) ──────────────────────────────── */
+    .btn {
       display: inline-flex;
       align-items: center;
-      gap: 0.4rem;
-      background: rgba(78,140,255,0.12);
-      border: 1px solid rgba(78,140,255,0.3);
-      border-radius: 20px;
-      font-size: 0.75rem;
-      color: var(--blue);
-      padding: 3px 10px;
-      margin-top: 0.5rem;
-    }
-    .auto-detect-badge::before {
-      content: '';
-      width: 7px;
-      height: 7px;
-      border-radius: 50%;
-      background: var(--blue);
-      animation: pulse 1.5s infinite;
-    }
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.3; }
-    }
-
-    /* ── Checkbox group ─────────────────────────────────── */
-    .checkbox-group {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 0.6rem;
-    }
-    .checkbox-item {
-      display: flex;
-      align-items: center;
+      justify-content: center;
       gap: 0.5rem;
-      background: rgba(15,52,96,0.3);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 0.6rem 0.9rem;
+      height: 2.625rem;
+      padding: .7rem 1.2rem;
+      border-radius: var(--radius);
+      font-family: var(--font-family);
+      font-size: 1rem;
+      font-weight: 500;
+      white-space: nowrap;
+      line-height: 1.2;
       cursor: pointer;
-      transition: border-color 0.15s;
+      transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
     }
-    .checkbox-item:hover { border-color: var(--blue); }
-    .checkbox-item input[type="checkbox"] {
-      width: 16px;
-      height: 16px;
-      accent-color: var(--blue);
-      cursor: pointer;
-      flex-shrink: 0;
+    .btn-lg { font-size: 1.1rem; font-weight: 600; }
+    .btn-sm { font-size: 0.9rem; font-weight: 400; }
+    .btn-block { display: flex; text-align: center; width: 100%; }
+    .btn-primary,
+    .btn-proceed { background: var(--color-teal); color: var(--color-white); border: none; }
+    .btn-primary:hover,  .btn-proceed:hover  { background: var(--color-teal-600); }
+    .btn-primary:active, .btn-proceed:active { background: var(--color-teal-700); }
+    .btn-primary:disabled, .btn-proceed:disabled { background: var(--color-graphite-500); cursor: default; }
+    .btn-secondary { background: transparent; color: var(--color-teal); border: 0.125rem solid var(--color-teal); }
+    .btn-secondary:hover  { background: var(--color-teal-100); }
+    .btn-secondary:active { background: var(--color-teal); color: var(--color-white); }
+    .btn-secondary:disabled { color: var(--color-graphite-500); border-color: var(--color-graphite-500); cursor: default; }
+    @media (max-width: 48rem) {
+      .btn--block-mobile { width: 100%; }
     }
-    .checkbox-item span { font-size: 0.875rem; }
 
-    /* ── Navigation buttons ─────────────────────────────── */
     .wizard-nav {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-top: 2rem;
-      padding-top: 1.5rem;
-      border-top: 1px solid var(--border);
+      gap: var(--space-4);
+      margin-top: var(--space-8);
+      padding-top: var(--space-6);
+      border-top: 0.0625rem solid var(--color-graphite-200);
     }
-    .btn {
-      border: none;
-      border-radius: 8px;
-      cursor: pointer;
-      font-family: inherit;
-      font-size: 0.9rem;
-      font-weight: 600;
-      padding: 0.65rem 1.4rem;
-      transition: all 0.2s;
+    @media (max-width: 48rem) {
+      .wizard-nav { flex-direction: column-reverse; align-items: stretch; }
+      .wizard-nav .btn { width: 100%; }
     }
-    .btn-primary {
-      background: var(--blue);
-      color: #fff;
-    }
-    .btn-primary:hover { background: #3a7aff; transform: translateY(-1px); }
-    .btn-secondary {
-      background: transparent;
-      border: 1px solid var(--border);
-      color: var(--muted);
-    }
-    .btn-secondary:hover { border-color: var(--blue); color: var(--text); }
-    .btn-danger {
-      background: var(--highlight);
-      color: #fff;
-      padding: 0.75rem 2rem;
-      font-size: 1rem;
-    }
-    .btn-danger:hover { background: #ff2d50; transform: translateY(-1px); }
-    .btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none !important; }
 
-    /* ── Results area ───────────────────────────────────── */
-    .results-section {
-      margin-top: 2rem;
+    .tab-pane { display: none; }
+    .tab-pane.active { display: block; }
+
+    .pane-heading {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      margin-bottom: var(--space-6);
     }
-    .results-card {
-      background: var(--card);
-      border: 1px solid var(--border);
+
+    /* ── Consent box ──────────────────────────────────────── */
+    .consent-box {
+      display: none;
+      background: var(--color-teal-100);
+      border: 0.0625rem solid var(--color-teal);
+      border-left-width: 0.25rem;
       border-radius: var(--radius);
-      padding: 1.5rem 2rem;
-      box-shadow: var(--shadow);
+      padding: 0.875rem 1rem;
+      margin-top: var(--space-5);
     }
-    .results-card h3 {
-      font-size: 1rem;
-      color: var(--muted);
-      text-transform: uppercase;
-      letter-spacing: 0.6px;
-      margin-bottom: 1.2rem;
+    .consent-box.is-visible { display: block; }
+    .consent-box .checkbox-wrapper { align-items: flex-start; font-size: 0.9375rem; }
+    .consent-box .checkbox { margin-top: 0.125rem; }
+    .consent-hint {
+      margin: var(--space-2) 0 0 2.125rem;
+      font-size: 0.8125rem;
+      color: var(--color-graphite-700);
     }
-    .progress-bar-wrap {
-      background: var(--bg);
-      border-radius: 20px;
-      height: 10px;
+
+    /* ── Progress & results ───────────────────────────────── */
+    .progress-track {
+      background: var(--color-graphite-100);
+      border-radius: var(--radius-pill);
+      height: 0.5rem;
       overflow: hidden;
-      margin-bottom: 0.5rem;
+      margin-bottom: var(--space-2);
     }
-    .progress-bar-fill {
+    .progress-fill {
       height: 100%;
       width: 0%;
-      background: linear-gradient(90deg, var(--blue), #a78bfa);
-      border-radius: 20px;
+      background: var(--color-teal);
+      border-radius: var(--radius-pill);
       transition: width 0.5s ease;
     }
     .progress-label {
-      font-size: 0.8rem;
-      color: var(--muted);
-      margin-bottom: 1.5rem;
+      font-size: 0.8125rem;
+      color: var(--color-graphite-600);
+      margin-bottom: var(--space-6);
     }
-    .download-links {
-      display: flex;
-      gap: 0.8rem;
-      flex-wrap: wrap;
-    }
-    .dl-btn {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.4rem;
-      background: var(--accent);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      color: var(--muted);
-      font-size: 0.8rem;
-      padding: 0.5rem 1rem;
-      text-decoration: none;
-      cursor: not-allowed;
-      opacity: 0.5;
+    .results-empty {
+      color: var(--color-graphite-600);
+      font-size: var(--text-body-sm-size);
+      margin-bottom: var(--space-6);
     }
 
-    /* ── Footer ─────────────────────────────────────────── */
-    footer {
-      background: var(--card);
-      border-top: 1px solid var(--border);
-      padding: 1.2rem 2rem;
+    /* ── File download (canonical, fluid width in grid) ───── */
+    .downloads-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+      gap: var(--space-3);
+    }
+    .file-download {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      background: var(--color-white);
+      border: 0.0625rem solid var(--color-graphite-300);
+      border-radius: 0.5rem;
+      padding: 0.875rem 1rem;
+      width: 100%;
+      cursor: pointer;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .file-download:hover {
+      border-color: var(--color-teal);
+      box-shadow: 0 0.25rem 1rem rgba(1, 82, 83, 0.12);
+    }
+    .file-download__icon {
+      flex-shrink: 0;
+      width: 2.75rem;
+      height: 3.25rem;
+      border-radius: 0.375rem;
+      background: var(--color-teal);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0.125rem;
+      color: var(--color-white);
+    }
+    .file-download__icon svg { width: 1.25rem; height: 1.25rem; }
+    .file-download__icon span {
+      font-size: 0.5rem;
+      font-weight: 800;
+      color: var(--color-white);
+      line-height: 1;
+    }
+    .file-download__info { flex: 1; min-width: 0; }
+    .file-download__title {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--color-black);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .file-download__meta {
+      font-size: 0.8125rem;
+      color: var(--color-graphite-500);
+      margin-top: 0.1875rem;
+    }
+    .file-download__btn {
+      flex-shrink: 0;
+      width: 2.125rem;
+      height: 2.125rem;
+      border-radius: 50%;
+      background: var(--color-paper);
+      color: var(--color-teal);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.15s, color 0.15s;
+    }
+    .file-download__btn svg { width: 0.875rem; height: 0.875rem; }
+    .file-download:hover .file-download__btn {
+      background: var(--color-teal);
+      color: var(--color-white);
+    }
+    .file-download.is-disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+    .file-download.is-disabled:hover {
+      border-color: var(--color-graphite-300);
+      box-shadow: none;
+    }
+    .file-download.is-disabled:hover .file-download__btn {
+      background: var(--color-paper);
+      color: var(--color-teal);
+    }
+
+    /* ── Footer ───────────────────────────────────────────── */
+    .site-footer {
+      background: var(--color-teal-700);
+      color: var(--color-white);
+      padding: 3.5rem 0 2rem;
+      margin-top: 5rem;
+      font-family: var(--font-family);
+    }
+    .footer-grid {
+      display: grid;
+      grid-template-columns: 2fr 1fr 1fr;
+      gap: 2.5rem;
+      padding-bottom: 2.5rem;
+      border-bottom: 0.0625rem solid rgba(255,255,255,0.1);
+      margin-bottom: 1.5rem;
+    }
+    .footer-brand-mark {
+      font-size: 1.25rem;
+      font-weight: 800;
+      color: var(--color-white);
+      letter-spacing: -0.01em;
+      display: inline-block;
+      margin-bottom: 1.25rem;
+    }
+    .footer-brand-mark span { color: var(--color-mint); }
+    .footer-notice {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.9375rem;
+      font-weight: 700;
+      color: var(--color-white);
+      margin: 0 0 0.5rem;
+    }
+    .footer-notice svg { width: 1.125rem; height: 1.125rem; flex-shrink: 0; color: var(--color-star); }
+    .footer-tagline {
+      font-size: 0.9375rem;
+      color: rgba(255,255,255,0.5);
+      line-height: 1.55;
+      margin: 0 0 0.5rem;
+    }
+    .footer-disclaimer {
+      font-size: 0.8125rem;
+      color: rgba(255,255,255,0.5);
+      line-height: 1.55;
+      margin: 0.75rem 0 0;
+    }
+    .footer-col-heading {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--color-white);
+      margin: 0 0 1.25rem;
+    }
+    .footer-links {
+      list-style: none;
+      padding: 0; margin: 0;
+      display: flex; flex-direction: column; gap: 1rem;
+    }
+    .footer-links a {
+      font-size: 0.9375rem;
+      color: rgba(255,255,255,0.72);
+      text-decoration: none;
+      transition: color 0.14s;
+    }
+    .footer-links a:hover { color: var(--color-mint); }
+    .footer-legal {
       display: flex;
       align-items: center;
       justify-content: space-between;
       flex-wrap: wrap;
-      gap: 0.5rem;
-    }
-    .disclaimer {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.4rem;
-      background: rgba(233,69,96,0.1);
-      border: 1px solid rgba(233,69,96,0.25);
-      border-radius: 6px;
-      color: #f87171;
-      font-size: 0.78rem;
-      font-weight: 600;
-      padding: 4px 10px;
-    }
-    .footer-meta {
-      font-size: 0.8rem;
-      color: var(--muted);
-      display: flex;
-      align-items: center;
       gap: 1rem;
+      font-size: 0.8125rem;
+      color: rgba(255,255,255,0.45);
     }
-    .footer-meta a {
-      color: var(--blue);
+    .footer-legal a {
+      color: rgba(255,255,255,0.45);
       text-decoration: none;
+      transition: color 0.14s;
     }
-    .footer-meta a:hover { text-decoration: underline; }
+    .footer-legal a:hover { color: var(--color-white); }
+    @media (max-width: 64rem) {
+      .footer-grid { grid-template-columns: 1fr 1fr; gap: 2rem; }
+    }
+    @media (max-width: 48rem) {
+      .site-footer { padding: 2.5rem 0 1.5rem; }
+      .footer-grid { grid-template-columns: 1fr; gap: 2rem; }
+      .footer-legal { flex-direction: column; align-items: flex-start; gap: 0.75rem; }
+    }
   </style>
 </head>
 <body>
 
-<!-- Header -->
-<header>
-  <div class="logo-text">Med<span>Check</span></div>
-  <span class="version-badge">v{{ version }}</span>
-  <div class="header-spacer"></div>
-  <span class="header-tag">AI Medical Imaging Analysis</span>
+<!-- HEADER — full width, no padding; .is-sticky is added via JS on scroll -->
+<header class="site-header" id="site-header">
+  <div class="container header-inner">
+    <a href="/?lang={{ lang }}" class="brand" aria-label="MedCheck">
+      <span class="brand-mark">Med<span>Check</span></span>
+    </a>
+    <span class="badge badge--outlined hide-mobile">v{{ version }}</span>
+    <div class="header-spacer"></div>
+    <span class="header-tagline hide-mobile">{{ t.ui_tagline }}</span>
+    <nav class="lang-switch" aria-label="{{ t.ui_language }}">
+      {% for code in languages %}
+      <a href="/?lang={{ code }}" {% if code == lang %}aria-current="true"{% endif %}>{{ code }}</a>
+      {% endfor %}
+    </nav>
+  </div>
 </header>
 
-<!-- Main -->
 <main>
-  <p class="page-subtitle">Upload imaging data and run AI-assisted clinical analysis in three steps.</p>
 
-  <!-- Preview notice: remove when the analyze pipeline is wired up (issue #157) -->
-  <div
-    role="note"
-    style="margin: 0 0 1.25rem; padding: 0.75rem 1rem; border: 1px solid #d97706; border-radius: 8px; background: rgba(217, 119, 6, 0.08); font-size: 0.9rem;"
-  >
-    <strong>Preview:</strong> running an analysis from the browser is not yet available &mdash;
-    the Analyze step currently returns <code>501 Not Implemented</code>
-    (<a href="https://github.com/Liohtml/MedCheck/issues/157" rel="noopener">#157</a>).
-    Use the CLI instead: <code>medcheck analyze /path/to/scans</code>.
-  </div>
-
-  <!-- Wizard tabs -->
-  <div class="wizard-tabs">
-    <button type="button" class="tab-btn active" data-goto="1">
-      <span class="step-num">1</span> Load Data
-    </button>
-    <button type="button" class="tab-btn" data-goto="2">
-      <span class="step-num">2</span> Clinical Context
-    </button>
-    <button type="button" class="tab-btn" data-goto="3">
-      <span class="step-num">3</span> Analyze
-    </button>
-  </div>
-
-  <form id="analyzeForm" action="/api/analyze" method="post" enctype="multipart/form-data">
-    <div class="wizard-card">
-
-      <!-- Step 1: Load Data -->
-      <div class="tab-pane active" id="pane-1">
-        <div class="form-group">
-          <label>Upload Imaging File</label>
-          <div class="dropzone" id="dropzone">
-            <div class="dropzone-icon">&#x1F9FB;</div>
-            <p class="dropzone-hint"><strong>Click to browse</strong> or drag &amp; drop</p>
-            <p class="dropzone-hint" id="dropzoneSubtext" style="margin-top:4px;">DICOM, NIfTI, PNG, JPEG, TIFF &mdash; up to 500 MB</p>
-            <input type="file" id="fileInput" name="file"
-                   accept=".dcm,.nii,.nii.gz,.png,.jpg,.jpeg,.tiff,.tif" />
-          </div>
-          <div class="auto-detect-badge" id="autoDetectBadge" style="display:none;">
-            Auto-detect active &mdash; format will be identified automatically
-          </div>
-        </div>
-
-        <div class="or-divider">OR</div>
-
-        <div class="form-group">
-          <label>Remote URL</label>
-          <input type="url" name="source_url" placeholder="https://example.com/scan.dcm" />
-        </div>
-
-        <div class="input-row">
-          <div class="form-group">
-            <label>Patient Code / ID</label>
-            <input type="text" name="patient_code" placeholder="e.g. PT-20240001" />
-          </div>
-          <div class="form-group">
-            <label>Date of Birth</label>
-            <input type="date" name="dob" />
-          </div>
-        </div>
-
-        <div class="wizard-nav">
-          <span></span>
-          <button type="button" class="btn btn-primary" data-goto="2">
-            Next: Clinical Context &rarr;
-          </button>
-        </div>
-      </div>
-
-      <!-- Step 2: Clinical Context -->
-      <div class="tab-pane" id="pane-2">
-        <div class="form-group">
-          <label>Symptoms / Chief Complaint</label>
-          <textarea name="symptoms" rows="3"
-            placeholder="Describe the patient's presenting symptoms, e.g. persistent headache, vision changes..."></textarea>
-        </div>
-
-        <div class="input-row">
-          <div class="form-group">
-            <label>Trauma / Mechanism</label>
-            <input type="text" name="trauma" placeholder="e.g. Fall from height, MVA" />
-          </div>
-          <div class="form-group">
-            <label>Scan Date</label>
-            <input type="date" name="scan_date" />
-          </div>
-        </div>
-
-        <div class="form-group">
-          <label>Suspected Diagnosis</label>
-          <input type="text" name="suspected_dx"
-            placeholder="e.g. Pulmonary embolism, Glioblastoma multiforme" />
-        </div>
-
-        <div class="form-group">
-          <label>Anatomy / Region</label>
-          <select name="anatomy">
-            <option value="">-- Select region --</option>
-            <optgroup label="Head &amp; Spine">
-              <option value="brain">Brain</option>
-              <option value="spine_cervical">Spine &ndash; Cervical</option>
-              <option value="spine_thoracic">Spine &ndash; Thoracic</option>
-              <option value="spine_lumbar">Spine &ndash; Lumbar</option>
-            </optgroup>
-            <optgroup label="Chest">
-              <option value="chest">Chest / Thorax</option>
-              <option value="lungs">Lungs</option>
-              <option value="heart">Heart / Cardiac</option>
-            </optgroup>
-            <optgroup label="Abdomen &amp; Pelvis">
-              <option value="abdomen">Abdomen</option>
-              <option value="liver">Liver</option>
-              <option value="kidneys">Kidneys</option>
-              <option value="pelvis">Pelvis</option>
-            </optgroup>
-            <optgroup label="Musculoskeletal">
-              <option value="msk_upper">Upper Extremity</option>
-              <option value="msk_lower">Lower Extremity</option>
-              <option value="knee">Knee</option>
-              <option value="shoulder">Shoulder</option>
-            </optgroup>
-            <option value="other">Other / Whole Body</option>
-          </select>
-        </div>
-
-        <div class="wizard-nav">
-          <button type="button" class="btn btn-secondary" data-goto="1">
-            &larr; Back
-          </button>
-          <button type="button" class="btn btn-primary" data-goto="3">
-            Next: Analyze &rarr;
-          </button>
-        </div>
-      </div>
-
-      <!-- Step 3: Analyze -->
-      <div class="tab-pane" id="pane-3">
-        <div class="form-group">
-          <label>Analysis Modules</label>
-          <div class="checkbox-group">
-            <label class="checkbox-item">
-              <input type="checkbox" name="modules" value="ml_classification" checked />
-              <span>ML Classification</span>
-            </label>
-            <label class="checkbox-item">
-              <input type="checkbox" name="modules" value="vision_segmentation" checked />
-              <span>Vision Segmentation</span>
-            </label>
-            <label class="checkbox-item">
-              <input type="checkbox" name="modules" value="anomaly_detection" />
-              <span>Anomaly Detection</span>
-            </label>
-            <label class="checkbox-item">
-              <input type="checkbox" name="modules" value="measurement" />
-              <span>Auto Measurements</span>
-            </label>
-            <label class="checkbox-item">
-              <input type="checkbox" name="modules" value="comparison" />
-              <span>Prior Comparison</span>
-            </label>
-            <label class="checkbox-item">
-              <input type="checkbox" name="modules" value="report_gen" checked />
-              <span>Report Generation</span>
-            </label>
-          </div>
-        </div>
-
-        <div class="input-row">
-          <div class="form-group">
-            <label>AI Model</label>
-            <select name="model">
-              <option value="claude">Claude Opus 4.8 (Best quality)</option>
-              <option value="openai">GPT-5.5 (Best resolution)</option>
-              <option value="gemini">Gemini 3.5 Flash (Fastest)</option>
-              <option value="local">Local LLaVA-Med (Offline)</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label>Report Language</label>
-            <select name="language">
-              <option value="en">English</option>
-              <option value="de">Deutsch</option>
-              <option value="fr">Fran&ccedil;ais</option>
-              <option value="es">Espa&ntilde;ol</option>
-              <option value="pt">Portugu&ecirc;s</option>
-              <option value="ja">&#x65E5;&#x672C;&#x8A9E;</option>
-              <option value="zh">&#x4E2D;&#x6587;</option>
-            </select>
-          </div>
-        </div>
-
-        <div class="form-group">
-          <label>Report Format</label>
-          <select name="report_format">
-            <option value="pdf">PDF (structured radiology report)</option>
-            <option value="json">JSON (structured data)</option>
-            <option value="html">HTML (interactive)</option>
-            <option value="txt">Plain text</option>
-          </select>
-        </div>
-
-        <div class="wizard-nav">
-          <button type="button" class="btn btn-secondary" data-goto="2">
-            &larr; Back
-          </button>
-          <button type="submit" class="btn btn-danger" id="startBtn"
-                  hx-post="/api/analyze" hx-target="#resultsContent"
-                  hx-indicator="#progressWrap">
-            &#9658; Start Analysis
-          </button>
-        </div>
-      </div>
-
-    </div>
-  </form>
-
-  <!-- Results -->
-  <div class="results-section">
-    <div class="results-card">
-      <h3>Results</h3>
-
-      <div id="progressWrap">
-        <div class="progress-bar-wrap">
-          <div class="progress-bar-fill" id="progressFill"></div>
-        </div>
-        <p class="progress-label" id="progressLabel">Waiting for analysis to start&hellip;</p>
-      </div>
-
-      <div id="resultsContent" style="color: var(--muted); font-size:0.9rem; margin-bottom:1rem;">
-        No results yet. Configure the steps above and click Start Analysis.
-      </div>
-
-      <div class="download-links">
-        <a class="dl-btn" aria-disabled="true">&#8659; PDF Report</a>
-        <a class="dl-btn" aria-disabled="true">&#8659; JSON Data</a>
-        <a class="dl-btn" aria-disabled="true">&#8659; Annotated Images</a>
+  <!-- PAGE INTRO -->
+  <section class="section--sm">
+    <div class="container">
+      <div class="page-col section-intro">
+        <p class="overline">{{ t.ui_hero_overline }}</p>
+        <h1>{{ t.ui_hero_title }}</h1>
+        <p class="section-intro__lead">{{ t.ui_hero_lead }}</p>
       </div>
     </div>
-  </div>
+  </section>
+
+  <!-- WIZARD -->
+  <section>
+    <div class="container">
+      <div class="page-col">
+
+        <!-- Preview notice: remove when the analyze pipeline is wired up (issue #157) -->
+        <div class="alert alert-warning" role="note" style="margin-bottom: 1.5rem;">
+          <span class="alert__icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"></path><path d="M12 9v4M12 17h.01" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"></path></svg>
+          </span>
+          <div>
+            <h4 class="alert-heading">{{ t.ui_preview_title }}</h4>
+            <p>{{ t.ui_preview_body }}
+              (<a class="alert-link" href="https://github.com/Liohtml/MedCheck/issues/157" rel="noopener">#157</a>)</p>
+            <hr class="alert-divider">
+            <p>{{ t.ui_preview_cli }} <code>medcheck analyze /path/to/scans</code></p>
+          </div>
+        </div>
+
+        <!-- Stepper -->
+        <nav class="pdp-stepper" aria-label="{{ t.ui_step_label }}" style="margin-bottom: 1rem;">
+          <div class="pdp-stepper-inner">
+            <button type="button" class="pdp-stepper-step active" data-step="1" data-goto="1" aria-current="step">
+              <span class="pdp-stepper-num">1.</span>
+              <span class="pdp-stepper-label">{{ t.ui_step1 }}</span>
+            </button>
+            <span class="pdp-stepper-sep" aria-hidden="true">
+              <svg viewBox="0 0 8 16" fill="none" stroke="currentColor"
+                   stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="1 1 7 8 1 15"/>
+              </svg>
+            </span>
+            <button type="button" class="pdp-stepper-step" data-step="2" data-goto="2">
+              <span class="pdp-stepper-num">2.</span>
+              <span class="pdp-stepper-label">{{ t.ui_step2 }}</span>
+            </button>
+            <span class="pdp-stepper-sep" aria-hidden="true">
+              <svg viewBox="0 0 8 16" fill="none" stroke="currentColor"
+                   stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="1 1 7 8 1 15"/>
+              </svg>
+            </span>
+            <button type="button" class="pdp-stepper-step" data-step="3" data-goto="3">
+              <span class="pdp-stepper-num">3.</span>
+              <span class="pdp-stepper-label">{{ t.ui_step3 }}</span>
+            </button>
+          </div>
+        </nav>
+
+        <form id="analyzeForm" action="/api/analyze" method="post" enctype="multipart/form-data"
+              data-msg-consent="{{ t.ui_consent_required }}"
+              data-msg-sending="{{ t.ui_prog_sending }}"
+              data-msg-waiting="{{ t.ui_progress_waiting }}">
+          <div class="card">
+            <div class="card__body--loose">
+
+              <!-- Step 1: Load data -->
+              <div class="tab-pane active" id="pane-1">
+                <div class="pane-heading">
+                  <span class="card-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"></path><path d="M17 8l-5-5-5 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"></path><path d="M12 3v12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"></path></svg>
+                  </span>
+                  <h2>{{ t.ui_upload_heading }}</h2>
+                </div>
+
+                <div class="field-stack">
+                  <div>
+                    <div class="dropzone" id="dropzone" tabindex="0" role="button"
+                         aria-label="{{ t.ui_dropzone_cta }} — {{ t.ui_dropzone_or }}">
+                      <span class="card-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"></path><path d="M14 2v6h6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"></path><path d="M9 13h6M9 17h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"></path></svg>
+                      </span>
+                      <p class="dropzone-text"><strong>{{ t.ui_dropzone_cta }}</strong> {{ t.ui_dropzone_or }}</p>
+                      <p class="dropzone-meta" id="dropzoneSubtext">{{ t.ui_dropzone_formats }}</p>
+                      <input type="file" id="fileInput" name="file"
+                             accept=".dcm,.nii,.nii.gz,.png,.jpg,.jpeg,.tiff,.tif" />
+                    </div>
+                    <span class="autodetect" id="autoDetectBadge">
+                      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"></circle><path d="M9 12l2 2 4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"></path></svg>
+                      {{ t.ui_autodetect }}
+                    </span>
+                  </div>
+
+                  <div class="or-divider" aria-hidden="true">{{ t.ui_or }}</div>
+
+                  <div class="field-wrapper">
+                    <input type="url" class="form-control" id="sourceUrl" name="source_url" placeholder=" " />
+                    <label for="sourceUrl">{{ t.ui_remote_url }}</label>
+                    <span class="field__hint">{{ t.ui_url_hint }}</span>
+                  </div>
+
+                  <div class="grid-2">
+                    <div class="field-wrapper">
+                      <input type="text" class="form-control" id="patientCode" name="patient_code" placeholder=" " />
+                      <label for="patientCode">{{ t.ui_patient_code }}</label>
+                    </div>
+                    <div class="field-wrapper field-wrapper--static">
+                      <input type="date" class="form-control" id="dob" name="dob" />
+                      <label for="dob">{{ t.field_dob }}</label>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="wizard-nav">
+                  <span></span>
+                  <button type="button" class="btn btn-proceed" data-goto="2">
+                    {{ t.ui_next_context }}
+                    <svg width="12" height="10" viewBox="0 0 14 12" fill="none">
+                      <path d="M1 6h12M7 1l6 5-6 5" stroke="currentColor"
+                        stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Step 2: Clinical context -->
+              <div class="tab-pane" id="pane-2">
+                <div class="pane-heading">
+                  <span class="card-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"></path><path d="M14 2v6h6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"></path><path d="M9 13h6M9 17h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"></path></svg>
+                  </span>
+                  <h2>{{ t.ui_step2 }}</h2>
+                </div>
+
+                <div class="field-stack">
+                  <div class="field-wrapper field-wrapper--textarea">
+                    <textarea class="form-control" id="symptoms" name="symptoms" rows="3" placeholder=" "></textarea>
+                    <label for="symptoms">{{ t.ui_symptoms }}</label>
+                    <span class="field__hint">{{ t.ui_symptoms_hint }}</span>
+                  </div>
+
+                  <div class="grid-2">
+                    <div class="field-wrapper">
+                      <input type="text" class="form-control" id="trauma" name="trauma" placeholder=" " />
+                      <label for="trauma">{{ t.ui_trauma }}</label>
+                    </div>
+                    <div class="field-wrapper field-wrapper--static">
+                      <input type="date" class="form-control" id="scanDate" name="scan_date" />
+                      <label for="scanDate">{{ t.field_study_date }}</label>
+                    </div>
+                  </div>
+
+                  <div class="field-wrapper">
+                    <input type="text" class="form-control" id="suspectedDx" name="suspected_dx" placeholder=" " />
+                    <label for="suspectedDx">{{ t.ui_suspected_dx }}</label>
+                  </div>
+
+                  <div class="field-wrapper field-wrapper--static field-wrapper--select">
+                    <select class="form-control" id="anatomy" name="anatomy">
+                      <option value="">{{ t.ui_anatomy_placeholder }}</option>
+                      <optgroup label="{{ t.ui_anat_group_msk }}">
+                        <option value="knee">{{ t.ui_anat_knee }}</option>
+                        <option value="shoulder">{{ t.ui_anat_shoulder }}</option>
+                        <option value="hip">{{ t.ui_anat_hip }}</option>
+                        <option value="wrist">{{ t.ui_anat_wrist }}</option>
+                        <option value="ankle">{{ t.ui_anat_ankle }}</option>
+                        <option value="spine">{{ t.ui_anat_spine }}</option>
+                      </optgroup>
+                      <optgroup label="{{ t.ui_anat_group_other }}">
+                        <option value="brain">{{ t.ui_anat_brain }}</option>
+                        <option value="chest">{{ t.ui_anat_chest }}</option>
+                        <option value="abdomen">{{ t.ui_anat_abdomen }}</option>
+                        <option value="other">{{ t.ui_anat_other }}</option>
+                      </optgroup>
+                    </select>
+                    <label for="anatomy">{{ t.ui_anatomy }}</label>
+                  </div>
+                </div>
+
+                <div class="wizard-nav">
+                  <button type="button" class="btn btn-secondary" data-goto="1">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M21 12H5M11 18l-6-6 6-6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"></path></svg>
+                    {{ t.ui_back }}
+                  </button>
+                  <button type="button" class="btn btn-proceed" data-goto="3">
+                    {{ t.ui_next_analyze }}
+                    <svg width="12" height="10" viewBox="0 0 14 12" fill="none">
+                      <path d="M1 6h12M7 1l6 5-6 5" stroke="currentColor"
+                        stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Step 3: Analyze -->
+              <div class="tab-pane" id="pane-3">
+                <div class="pane-heading">
+                  <span class="card-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="9" y="9" width="6" height="6" rx="0" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"></rect><path d="M9 2v2M15 2v2M9 20v2M15 20v2M2 9h2M2 15h2M20 9h2M20 15h2M9 9h.01M15 9h.01M9 15h.01M15 15h.01" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"></path></svg>
+                  </span>
+                  <h2>{{ t.ui_step3 }}</h2>
+                </div>
+
+                <div class="field-stack">
+                  <fieldset style="border: none; padding: 0; margin: 0;">
+                    <legend class="overline" style="margin-bottom: 0.75rem; padding: 0;">{{ t.ui_modules }}</legend>
+                    <div class="modules-grid">
+                      <label class="checkbox-wrapper module-tile">
+                        <input type="checkbox" class="checkbox-input" name="modules" value="ml_classification" checked />
+                        <span class="checkbox checkbox--config" aria-hidden="true">
+                          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"></path></svg>
+                        </span>
+                        {{ t.ui_mod_ml }}
+                      </label>
+                      <label class="checkbox-wrapper module-tile">
+                        <input type="checkbox" class="checkbox-input" name="modules" value="vision_segmentation" checked />
+                        <span class="checkbox checkbox--config" aria-hidden="true">
+                          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"></path></svg>
+                        </span>
+                        {{ t.ui_mod_seg }}
+                      </label>
+                      <label class="checkbox-wrapper module-tile">
+                        <input type="checkbox" class="checkbox-input" name="modules" value="anomaly_detection" />
+                        <span class="checkbox checkbox--config" aria-hidden="true">
+                          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"></path></svg>
+                        </span>
+                        {{ t.ui_mod_anomaly }}
+                      </label>
+                      <label class="checkbox-wrapper module-tile">
+                        <input type="checkbox" class="checkbox-input" name="modules" value="measurement" />
+                        <span class="checkbox checkbox--config" aria-hidden="true">
+                          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"></path></svg>
+                        </span>
+                        {{ t.ui_mod_measure }}
+                      </label>
+                      <label class="checkbox-wrapper module-tile">
+                        <input type="checkbox" class="checkbox-input" name="modules" value="comparison" />
+                        <span class="checkbox checkbox--config" aria-hidden="true">
+                          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"></path></svg>
+                        </span>
+                        {{ t.ui_mod_compare }}
+                      </label>
+                      <label class="checkbox-wrapper module-tile">
+                        <input type="checkbox" class="checkbox-input" name="modules" value="report_gen" checked />
+                        <span class="checkbox checkbox--config" aria-hidden="true">
+                          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"></path></svg>
+                        </span>
+                        {{ t.ui_mod_report }}
+                      </label>
+                    </div>
+                  </fieldset>
+
+                  <div class="grid-2">
+                    <div class="field-wrapper field-wrapper--static field-wrapper--select">
+                      <select class="form-control" id="modelSelect" name="model">
+                        <option value="claude">{{ t.ui_model_claude }}</option>
+                        <option value="openai">{{ t.ui_model_openai }}</option>
+                        <option value="gemini">{{ t.ui_model_gemini }}</option>
+                        <option value="local">{{ t.ui_model_local }}</option>
+                      </select>
+                      <label for="modelSelect">{{ t.ui_model }}</label>
+                    </div>
+                    <div class="field-wrapper field-wrapper--static field-wrapper--select">
+                      <select class="form-control" id="reportLanguage" name="language">
+                        <option value="en" {% if lang == 'en' %}selected{% endif %}>English</option>
+                        <option value="de" {% if lang == 'de' %}selected{% endif %}>Deutsch</option>
+                        <option value="fr" {% if lang == 'fr' %}selected{% endif %}>Fran&ccedil;ais</option>
+                        <option value="es" {% if lang == 'es' %}selected{% endif %}>Espa&ntilde;ol</option>
+                      </select>
+                      <label for="reportLanguage">{{ t.ui_report_language }}</label>
+                    </div>
+                  </div>
+
+                  <div class="field-wrapper field-wrapper--static field-wrapper--select">
+                    <select class="form-control" id="reportFormat" name="report_format">
+                      <option value="pdf">{{ t.ui_fmt_pdf }}</option>
+                      <option value="json">{{ t.ui_fmt_json }}</option>
+                      <option value="html">{{ t.ui_fmt_html }}</option>
+                    </select>
+                    <label for="reportFormat">{{ t.ui_report_format }}</label>
+                  </div>
+
+                  <!-- Cloud LLM consent — shown for cloud models only -->
+                  <div class="consent-box is-visible" id="consentBlock">
+                    <label class="checkbox-wrapper">
+                      <input type="checkbox" class="checkbox-input" id="consentCheck" name="allow_cloud_llm" value="true" />
+                      <span class="checkbox checkbox--filter" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"></path></svg>
+                      </span>
+                      {{ t.ui_consent_label }}
+                    </label>
+                    <p class="consent-hint">{{ t.ui_consent_hint }}</p>
+                  </div>
+                </div>
+
+                <div class="wizard-nav">
+                  <button type="button" class="btn btn-secondary" data-goto="2">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M21 12H5M11 18l-6-6 6-6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"></path></svg>
+                    {{ t.ui_back }}
+                  </button>
+                  <button type="submit" class="btn btn-primary btn-lg" id="startBtn">
+                    {{ t.ui_start }}
+                    <svg width="12" height="10" viewBox="0 0 14 12" fill="none">
+                      <path d="M1 6h12M7 1l6 5-6 5" stroke="currentColor"
+                        stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </form>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- RESULTS -->
+  <section class="section--sm">
+    <div class="container">
+      <div class="page-col">
+        <div class="card">
+          <div class="card__body--loose">
+            <div class="pane-heading">
+              <span class="card-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M7 10l5 5 5-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"></path><path d="M12 15V3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"></path><path d="M5 17h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"></path></svg>
+              </span>
+              <h2>{{ t.ui_results }}</h2>
+            </div>
+
+            <div id="progressWrap">
+              <div class="progress-track">
+                <div class="progress-fill" id="progressFill"></div>
+              </div>
+              <p class="progress-label" id="progressLabel">{{ t.ui_progress_waiting }}</p>
+            </div>
+
+            <div id="resultsContent" class="results-empty">{{ t.ui_no_results }}</div>
+
+            <div class="downloads-grid">
+              <div class="file-download is-disabled" aria-disabled="true">
+                <div class="file-download__icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"></path><path d="M14 2v6h6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"></path><path d="M9 13h6M9 17h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"></path></svg>
+                  <span>PDF</span>
+                </div>
+                <div class="file-download__info">
+                  <div class="file-download__title">{{ t.ui_dl_pdf }}</div>
+                  <div class="file-download__meta">{{ t.ui_dl_pending }}</div>
+                </div>
+                <div class="file-download__btn" aria-hidden="true">
+                  <svg viewBox="0 0 14 14" fill="none">
+                    <path d="M7 1v8M3.5 6.5L7 10l3.5-3.5"
+                      stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                    <line x1="2" y1="13" x2="12" y2="13"
+                      stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                  </svg>
+                </div>
+              </div>
+
+              <div class="file-download is-disabled" aria-disabled="true">
+                <div class="file-download__icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="9" y="9" width="6" height="6" rx="0" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"></rect><path d="M9 2v2M15 2v2M9 20v2M15 20v2M2 9h2M2 15h2M20 9h2M20 15h2M9 9h.01M15 9h.01M9 15h.01M15 15h.01" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"></path></svg>
+                  <span>JSON</span>
+                </div>
+                <div class="file-download__info">
+                  <div class="file-download__title">{{ t.ui_dl_json }}</div>
+                  <div class="file-download__meta">{{ t.ui_dl_pending }}</div>
+                </div>
+                <div class="file-download__btn" aria-hidden="true">
+                  <svg viewBox="0 0 14 14" fill="none">
+                    <path d="M7 1v8M3.5 6.5L7 10l3.5-3.5"
+                      stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                    <line x1="2" y1="13" x2="12" y2="13"
+                      stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                  </svg>
+                </div>
+              </div>
+
+              <div class="file-download is-disabled" aria-disabled="true">
+                <div class="file-download__icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"></rect><circle cx="8.5" cy="8.5" r="1.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"></circle><path d="M21 15l-5-5L5 21" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"></path></svg>
+                  <span>PNG</span>
+                </div>
+                <div class="file-download__info">
+                  <div class="file-download__title">{{ t.ui_dl_images }}</div>
+                  <div class="file-download__meta">{{ t.ui_dl_pending }}</div>
+                </div>
+                <div class="file-download__btn" aria-hidden="true">
+                  <svg viewBox="0 0 14 14" fill="none">
+                    <path d="M7 1v8M3.5 6.5L7 10l3.5-3.5"
+                      stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                    <line x1="2" y1="13" x2="12" y2="13"
+                      stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                  </svg>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
 
 </main>
 
-<!-- Footer -->
-<footer>
-  <span class="disclaimer">&#9888; Not a medical device &mdash; for research use only</span>
-  <div class="footer-meta">
-    <span>MedCheck v{{ version }}</span>
-    <a href="https://github.com/your-org/medcheck" target="_blank" rel="noopener noreferrer">GitHub &#8599;</a>
+<!-- FOOTER — full width, no padding; teal-700 per design system -->
+<footer class="site-footer">
+  <div class="container">
+
+    <div class="footer-grid">
+
+      <div>
+        <span class="footer-brand-mark">Med<span>Check</span></span>
+        <p class="footer-notice">
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"></path><path d="M12 9v4M12 17h.01" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"></path></svg>
+          {{ t.ui_footer_notice_title }}
+        </p>
+        <p class="footer-tagline">{{ t.ui_footer_research }}</p>
+        <p class="footer-disclaimer">{{ t.disclaimer }}</p>
+      </div>
+
+      <div>
+        <p class="footer-col-heading">{{ t.ui_footer_docs }}</p>
+        <ul class="footer-links">
+          <li><a href="https://github.com/Liohtml/MedCheck/tree/main/docs" rel="noopener noreferrer">{{ t.ui_footer_docs }}</a></li>
+          <li><a href="https://github.com/Liohtml/MedCheck/blob/main/docs/intended-use.md" rel="noopener noreferrer">{{ t.ui_footer_intended }}</a></li>
+          <li><a href="https://github.com/Liohtml/MedCheck/blob/main/docs/model-card.md" rel="noopener noreferrer">{{ t.ui_footer_modelcard }}</a></li>
+          <li><a href="https://github.com/Liohtml/MedCheck/blob/main/SECURITY.md" rel="noopener noreferrer">{{ t.ui_footer_security }}</a></li>
+        </ul>
+      </div>
+
+      <div>
+        <p class="footer-col-heading">{{ t.ui_footer_project }}</p>
+        <ul class="footer-links">
+          <li><a href="https://github.com/Liohtml/MedCheck" rel="noopener noreferrer">{{ t.ui_footer_github }}</a></li>
+          <li><a href="https://github.com/Liohtml/MedCheck/blob/main/CHANGELOG.md" rel="noopener noreferrer">{{ t.ui_footer_changelog }}</a></li>
+          <li><a href="https://github.com/Liohtml/MedCheck/blob/main/LICENSE" rel="noopener noreferrer">{{ t.ui_footer_license }}</a></li>
+        </ul>
+      </div>
+
+    </div>
+
+    <div class="footer-legal">
+      <span>© 2026 MedCheck · Apache 2.0</span>
+      <span>{{ t.ui_version }} {{ version }}</span>
+    </div>
+
   </div>
 </footer>
 

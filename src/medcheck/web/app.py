@@ -21,11 +21,16 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 from medcheck import __version__
 from medcheck.core.config import Settings
+from medcheck.i18n import get_strings
 
 TEMPLATES_DIR = Path(__file__).parent / "templates"
 STATIC_DIR = Path(__file__).parent / "static"
 
 _api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
+
+# UI locales offered by the web page's language switcher. Keep in sync with the
+# AnalyzeRequest.language pattern and the i18n catalogs (medcheck/i18n/*.json).
+UI_LANGUAGES = ("en", "de", "fr", "es")
 
 
 class AnalyzeRequest(BaseModel):
@@ -201,8 +206,22 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         return {"status": "ok", "version": __version__}
 
     @app.get("/", response_class=HTMLResponse)
-    def index(request: Request) -> Any:
-        return templates.TemplateResponse(request, "index.html", {"version": __version__})
+    def index(request: Request, lang: str | None = None) -> Any:
+        # ?lang= switches the UI locale; anything unknown falls back to the
+        # configured default (and ultimately to English inside get_strings).
+        ui_lang = lang if lang in UI_LANGUAGES else settings.default_language
+        if ui_lang not in UI_LANGUAGES:
+            ui_lang = "en"
+        return templates.TemplateResponse(
+            request,
+            "index.html",
+            {
+                "version": __version__,
+                "t": get_strings(ui_lang),
+                "lang": ui_lang,
+                "languages": UI_LANGUAGES,
+            },
+        )
 
     @app.post("/api/analyze")
     def analyze(

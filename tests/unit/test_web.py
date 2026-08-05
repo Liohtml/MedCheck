@@ -85,6 +85,36 @@ def test_htmx_is_vendored_locally():
     assert "unpkg.com" not in page
 
 
+# --- Web UI i18n (?lang= switcher) ---
+
+
+def test_homepage_language_switch():
+    client = TestClient(create_app())
+    de = client.get("/", params={"lang": "de"})
+    assert de.status_code == 200
+    assert 'lang="de"' in de.text
+    assert "Analyse starten" in de.text  # de catalog ui_start
+
+
+def test_homepage_unknown_language_falls_back_to_default():
+    client = TestClient(create_app())
+    resp = client.get("/", params={"lang": "klingon"})
+    assert resp.status_code == 200
+    assert 'lang="en"' in resp.text
+    assert "Start analysis" in resp.text  # en catalog ui_start
+
+
+def test_homepage_offers_only_supported_report_languages():
+    # The report-language select must only offer locales the API accepts
+    # (AnalyzeRequest.language pattern) — pt/ja/zh used to 422 on submit.
+    client = TestClient(create_app())
+    page = client.get("/").text
+    for value in ('value="en"', 'value="de"', 'value="fr"', 'value="es"'):
+        assert value in page
+    for value in ('value="pt"', 'value="ja"', 'value="zh"'):
+        assert value not in page
+
+
 # --- Security headers (issue #109) ---
 
 _EXPECTED_SECURITY_HEADERS = {
