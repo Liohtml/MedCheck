@@ -376,7 +376,17 @@
     .pdp-stepper-step.completed { color: rgba(255, 255, 255, 0.85); }
     .pdp-stepper-num { font-weight: 700; }
     .pdp-stepper-label { font-weight: 400; }
-    .pdp-stepper-step:not(.active) .pdp-stepper-label { display: none; }
+    /* Visually hidden (not display:none) so screen readers still announce
+       the step name on inactive stepper buttons. */
+    .pdp-stepper-step:not(.active) .pdp-stepper-label {
+      position: absolute;
+      width: 0.0625rem;
+      height: 0.0625rem;
+      padding: 0;
+      overflow: hidden;
+      clip-path: inset(50%);
+      white-space: nowrap;
+    }
     .pdp-stepper-sep {
       display: flex;
       align-items: center;
@@ -958,10 +968,19 @@
           </div>
         </nav>
 
-        <form id="analyzeForm" action="/api/analyze" method="post" enctype="multipart/form-data"
+        <noscript>
+          <div class="alert alert-warning" role="note" style="margin-bottom: 1.5rem;">
+            <p>{{ t.ui_noscript }}</p>
+          </div>
+        </noscript>
+
+        <!-- No enctype: the submit handler posts JSON; a native (no-JS) submit is
+             not supported and the noscript notice above says so. -->
+        <form id="analyzeForm" action="/api/analyze" method="post"
               data-msg-consent="{{ t.ui_consent_required }}"
               data-msg-sending="{{ t.ui_prog_sending }}"
-              data-msg-waiting="{{ t.ui_progress_waiting }}">
+              data-msg-waiting="{{ t.ui_progress_waiting }}"
+              data-msg-error="{{ t.ui_error_generic }}">
           <div class="card">
             <div class="card__body--loose">
 

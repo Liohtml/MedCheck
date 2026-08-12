@@ -104,19 +104,27 @@
     if (startBtn) startBtn.disabled = true;
     setProgress(30, form.getAttribute('data-msg-sending'));
 
+    // Abort a stalled request so the submit button cannot stay disabled forever.
+    var controller = new AbortController();
+    var timeoutId = window.setTimeout(function () { controller.abort(); }, 120000);
+
     fetch(form.getAttribute('action'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body)
+      body: JSON.stringify(body),
+      signal: controller.signal
     })
       .then(function (resp) {
-        return resp.json().then(function (data) {
+        // Read defensively: a proxy error page or empty body is not JSON.
+        return resp.text().then(function (raw) {
+          var data = null;
+          try { data = JSON.parse(raw); } catch (e) { data = null; }
           return { ok: resp.ok, status: resp.status, data: data };
         });
       })
       .then(function (result) {
         var detail = result.data && result.data.detail;
-        if (typeof detail !== 'string') detail = JSON.stringify(result.data);
+        if (typeof detail !== 'string') detail = 'HTTP ' + result.status;
         if (result.ok) {
           setProgress(100, '');
           showResultAlert('success', detail);
@@ -126,11 +134,12 @@
           showResultAlert(result.status === 501 ? 'warning' : 'danger', detail);
         }
       })
-      .catch(function (err) {
+      .catch(function () {
         setProgress(0, form.getAttribute('data-msg-waiting'));
-        showResultAlert('danger', String(err));
+        showResultAlert('danger', form.getAttribute('data-msg-error'));
       })
       .then(function () {
+        window.clearTimeout(timeoutId);
         if (startBtn) startBtn.disabled = false;
       });
   }

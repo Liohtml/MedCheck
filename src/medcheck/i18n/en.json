@@ -104,5 +104,7 @@
   "ui_footer_intended": "Intended use",
   "ui_footer_modelcard": "Model card",
   "ui_footer_github": "GitHub repository",
-  "ui_version": "Version"
+  "ui_version": "Version",
+  "ui_error_generic": "The request failed (network error or timeout). Please try again.",
+  "ui_noscript": "JavaScript is required to run an analysis from the browser. Please enable JavaScript or use the CLI: medcheck analyze /path/to/scans"
 }

@@ -104,5 +104,7 @@
   "ui_footer_intended": "Uso previsto",
   "ui_footer_modelcard": "Ficha del modelo",
   "ui_footer_github": "Repositorio de GitHub",
-  "ui_version": "Versión"
+  "ui_version": "Versión",
+  "ui_error_generic": "La solicitud falló (error de red o tiempo de espera agotado). Inténtelo de nuevo.",
+  "ui_noscript": "Se requiere JavaScript para ejecutar un análisis desde el navegador. Active JavaScript o use la línea de comandos: medcheck analyze /ruta/a/escaneos"
 }

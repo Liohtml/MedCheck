@@ -104,5 +104,7 @@
   "ui_footer_intended": "Verwendungszweck",
   "ui_footer_modelcard": "Model Card",
   "ui_footer_github": "GitHub-Repository",
-  "ui_version": "Version"
+  "ui_version": "Version",
+  "ui_error_generic": "Die Anfrage ist fehlgeschlagen (Netzwerkfehler oder Zeitüberschreitung). Bitte versuchen Sie es erneut.",
+  "ui_noscript": "Für die Analyse im Browser ist JavaScript erforderlich. Bitte aktivieren Sie JavaScript oder nutzen Sie die Kommandozeile: medcheck analyze /pfad/zu/scans"
 }
