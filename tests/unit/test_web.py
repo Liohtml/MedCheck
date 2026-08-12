@@ -104,6 +104,15 @@ def test_homepage_unknown_language_falls_back_to_default():
     assert "Start analysis" in resp.text  # en catalog ui_start
 
 
+def test_homepage_invalid_configured_default_language_falls_back_to_english():
+    # MEDCHECK_LANGUAGE can hold values the UI has no catalog for (e.g. "pt");
+    # the page must then render English rather than erroring or half-translating.
+    client = TestClient(create_app(Settings(default_language="pt")))
+    resp = client.get("/")
+    assert resp.status_code == 200
+    assert 'lang="en"' in resp.text
+
+
 def test_homepage_offers_only_supported_report_languages():
     # The report-language select must only offer locales the API accepts
     # (AnalyzeRequest.language pattern) — pt/ja/zh used to 422 on submit.
