@@ -96,6 +96,7 @@ def test_vision_step_populates_findings():
     ctx.volumes = {"test_sag": np.random.rand(5, 64, 64).astype(np.float32)}
     ctx.top_slices = {"test_sag": [2, 3, 1]}
     ctx.detected_anatomy = "knee"
+    ctx.pixels_reviewed = True
     ctx.allow_external_llm = True  # consent to the cloud provider
 
     mock_result = AnalysisResult(
@@ -151,6 +152,7 @@ def test_vision_step_run_caps_images_sent_to_provider():
     ctx = PipelineContext()
     ctx.volumes = {f"s{i}": np.random.rand(5, 16, 16).astype(np.float32) for i in range(6)}
     ctx.detected_anatomy = "knee"
+    ctx.pixels_reviewed = True
     ctx.allow_external_llm = True
 
     mock_result = AnalysisResult(
@@ -217,6 +219,7 @@ def test_vision_step_allows_local_without_consent():
 
 def test_vision_step_honours_explicit_provider_preference():
     ctx = _consent_test_context()
+    ctx.pixels_reviewed = True
     ctx.allow_external_llm = True
     ctx.llm_provider = "gemini"
 
@@ -230,3 +233,47 @@ def test_vision_step_honours_explicit_provider_preference():
     with patch.object(step, "_get_router", return_value=mock_router):
         step.run(ctx)
     assert mock_router.select.call_args.kwargs.get("preferred") == "gemini"
+
+
+def test_balanced_selection_includes_late_series_and_valid_indices():
+    ctx = PipelineContext(volumes={f"s{i}": np.zeros((10, 8, 8)) for i in range(4)})
+    ctx.top_slices = {"s0": [-1, 99, 3, 3]}
+    images = _collect_images(ctx, max_images=8)
+    assert [image.series_name for image in images] == ["s0", "s1", "s2", "s3"] * 2
+    assert images[0].slice_index == 3
+    assert len({(image.series_name, image.slice_index) for image in images}) == 8
+
+
+def test_vision_retains_warnings_and_rejects_unsent_references():
+    finding = StructureFinding(
+        name="ACL",
+        image_references=[
+            {"series_name": "s", "slice_index": 0},
+            {"series_name": "s", "slice_index": 99},
+        ],
+    )
+    provider = MagicMock(name="provider")
+    provider.name = "local"
+    provider.analyze_images.return_value = AnalysisResult(structures=[finding], limitations=["LLM warning"])
+    router = MagicMock()
+    router.select.return_value = provider
+    ctx = PipelineContext(volumes={"s": np.zeros((2, 8, 8))}, limitations=["Import warning"])
+    with patch.object(VisionAnalysisStep, "_get_router", return_value=router):
+        VisionAnalysisStep().run(ctx)
+    assert "Import warning" in ctx.limitations
+    assert "LLM warning" in ctx.limitations
+    assert finding.image_references == [{"series_name": "s", "slice_index": 0}]
+    assert len(ctx.analysis_provenance["selected_images"]) == 2
+
+
+def test_cloud_consent_does_not_substitute_for_pixel_review():
+    ctx = _consent_test_context()
+    ctx.allow_external_llm = True
+    provider = MagicMock()
+    provider.name = "claude"
+    router = MagicMock()
+    router.select.return_value = provider
+    with patch.object(VisionAnalysisStep, "_get_router", return_value=router):
+        with pytest.raises(PermissionError, match="pixel review"):
+            VisionAnalysisStep().run(ctx)
+    provider.analyze_images.assert_not_called()

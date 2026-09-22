@@ -24,6 +24,7 @@ classifiers = [
 ]
 dependencies = [
     "fastapi>=0.115.0",
+    "python-multipart>=0.0.20",
     "uvicorn[standard]>=0.32.0",
     "typer>=0.15.0",
     "pydicom>=3.0.0",
@@ -44,6 +45,11 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+claude = ["anthropic>=0.49.0"]
+openai = ["openai>=1.66.0"]
+gemini = ["google-genai>=1.30.0"]
+cloud = ["anthropic>=0.49.0", "openai>=1.66.0", "google-genai>=1.30.0"]
+privacy = ["pytesseract>=0.3.13"]
 local-models = [
     "torch>=2.5.0",
     "torchvision>=0.20.0",

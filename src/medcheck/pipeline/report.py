@@ -9,6 +9,7 @@ import os
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+from uuid import uuid4
 
 from medcheck.core.context import PatientInfo, PipelineContext
 from medcheck.core.step import PipelineStep
@@ -16,15 +17,8 @@ from medcheck.i18n import get_strings
 
 
 def _display_patient(ctx: PipelineContext) -> PatientInfo:
-    """Return the patient info to embed in reports.
-
-    With ``ctx.deidentify`` set, direct identifiers (name, patient ID, birth
-    date) are replaced by a stable SHA-256 pseudonym — the same scheme the
-    ingest step uses for log output — so reports can be shared without
-    exposing PHI. Sex and age are retained as they are clinically relevant
-    and not directly identifying.
-    """
-    if not ctx.deidentify:
+    """Return display identifiers; pseudonymization alone does not sanitize free text or pixels."""
+    if not ctx.deidentify or "deidentification" in ctx.analysis_provenance:
         return ctx.patient
     basis = ctx.patient.patient_id or ctx.patient.name
     pseudo = hashlib.sha256(basis.encode("utf-8")).hexdigest()[:12] if basis else "unknown"
@@ -54,6 +48,8 @@ def generate_json_report(ctx: PipelineContext) -> str:
                 "confidence": f.confidence,
                 "slices_evaluated": f.slices_evaluated,
                 "secondary_signs": f.secondary_signs,
+                "image_references": f.image_references,
+                "review_status": f.review_status,
             }
         )
 
@@ -75,6 +71,12 @@ def generate_json_report(ctx: PipelineContext) -> str:
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "language": ctx.report_language,
         "deidentified": ctx.deidentify,
+        "privacy": {
+            "metadata_deidentified": "deidentification" in ctx.analysis_provenance,
+            "pixels_reviewed": ctx.pixels_reviewed,
+            "certified_anonymization": False,
+        },
+        "study_instance_uid": ctx.study_instance_uid,
         "patient": {
             "name": patient.name,
             "patient_id": patient.patient_id,
@@ -97,6 +99,14 @@ def generate_json_report(ctx: PipelineContext) -> str:
         "overall_impression": ctx.overall_impression,
         "clinical_correlation": ctx.clinical_correlation,
         "limitations": ctx.limitations,
+        "disclaimer": "Research output, not a diagnosis. Independent qualified review required.",
+        "confidence_interpretation": "Uncalibrated model self-assessment; not a probability of correctness.",
+        "score_interpretation": "Relative within-series image differences; not disease probabilities.",
+        "quality_checks": ctx.quality_checks,
+        "analysis_provenance": ctx.analysis_provenance,
+        "review_history": ctx.review_history,
+        "reconciliation": ctx.reconciliation,
+        "series": [{"key": key, "slices": int(volume.shape[0])} for key, volume in ctx.volumes.items()],
     }
     return json.dumps(report, indent=2)
 
@@ -123,7 +133,7 @@ def generate_pdf_report(ctx: PipelineContext) -> str:
     )
 
     output_dir = ctx.output_dir or "."
-    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S") + "_" + uuid4().hex[:10]
     pdf_path = str(Path(output_dir) / f"report_{timestamp}.pdf")
 
     doc = SimpleDocTemplate(pdf_path, pagesize=A4)
@@ -178,10 +188,10 @@ def generate_pdf_report(ctx: PipelineContext) -> str:
         ]
         rows = [headers] + [
             [
-                f.name,
-                f.status,
+                Paragraph(html.escape(f.name), styles["Normal"]),
+                Paragraph(html.escape(f"{f.status} / {f.review_status}"), styles["Normal"]),
                 f"{f.confidence:.0%}",
-                f.findings,
+                Paragraph(html.escape(f.findings), styles["Normal"]),
             ]
             for f in ctx.findings
         ]
@@ -209,22 +219,39 @@ def generate_pdf_report(ctx: PipelineContext) -> str:
         story.append(Paragraph(i18n["no_findings"], styles["Normal"]))
     story.append(Spacer(1, 0.4 * cm))
 
+    story.append(
+        Paragraph(
+            "Confidence is an uncalibrated model self-assessment, not a probability of correctness.", styles["Normal"]
+        )
+    )
+    if ctx.review_history:
+        story.append(Paragraph("Review history (automated summary is unchanged)", styles["Heading2"]))
+        for event in ctx.review_history:
+            story.append(
+                Paragraph(
+                    html.escape(
+                        f"{event['at']}: finding {event['finding_index'] + 1}, "
+                        f"{event['after']['review_status']}. {event.get('note', '')}"
+                    ),
+                    styles["Normal"],
+                )
+            )
     # Overall Impression
     story.append(Paragraph(i18n["headings_impression"], styles["Heading2"]))
-    story.append(Paragraph(ctx.overall_impression or "—", styles["Normal"]))
+    story.append(Paragraph(html.escape(ctx.overall_impression or "—"), styles["Normal"]))
     story.append(Spacer(1, 0.3 * cm))
 
     # Clinical Correlation
     if ctx.clinical_correlation:
         story.append(Paragraph(i18n["headings_correlation"], styles["Heading2"]))
-        story.append(Paragraph(ctx.clinical_correlation, styles["Normal"]))
+        story.append(Paragraph(html.escape(ctx.clinical_correlation), styles["Normal"]))
         story.append(Spacer(1, 0.3 * cm))
 
     # Limitations
     if ctx.limitations:
         story.append(Paragraph(i18n["headings_limitations"], styles["Heading2"]))
         for lim in ctx.limitations:
-            story.append(Paragraph(f"• {lim}", styles["Normal"]))
+            story.append(Paragraph(html.escape(f"• {lim}"), styles["Normal"]))
         story.append(Spacer(1, 0.3 * cm))
 
     # Disclaimer
@@ -250,7 +277,7 @@ def generate_html_report(ctx: PipelineContext) -> str:
     """Generate a simple HTML report. Returns the file path."""
     i18n = get_strings(ctx.report_language)
     output_dir = ctx.output_dir or "."
-    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S") + "_" + uuid4().hex[:10]
     html_path = str(Path(output_dir) / f"report_{timestamp}.html")
 
     patient = _display_patient(ctx)
@@ -274,6 +301,12 @@ def generate_html_report(ctx: PipelineContext) -> str:
     _lang = (ctx.report_language or "en").lower().strip()
     resolved_lang = _lang if _lang in {"en", "de", "fr", "es"} else "en"
 
+    audit_html = "".join(
+        f"<li>{html.escape(str(event.get('at', '')))}: "
+        f"{html.escape(str(event.get('after', {}).get('review_status', '')))} — "
+        f"{html.escape(str(event.get('note', '')))}</li>"
+        for event in ctx.review_history
+    )
     html_content = f"""<!DOCTYPE html>
 <html lang="{html.escape(resolved_lang)}">
 <head>
@@ -326,6 +359,10 @@ def generate_html_report(ctx: PipelineContext) -> str:
   <h2>{html.escape(i18n["headings_limitations"])}</h2>
   <ul>{limitations_items or f"<li>{html.escape(i18n['none_specified'])}</li>"}</ul>
 
+  <p>Confidence is an uncalibrated model self-assessment, not a probability of correctness.</p>
+  <h2>Review history</h2>
+  <p>Review edits do not automatically regenerate the original model summary.</p>
+  <ul>{audit_html}</ul>
   <p class="disclaimer">
     {html.escape(i18n["disclaimer"])}
   </p>
@@ -359,10 +396,20 @@ class ReportStep(PipelineStep):
             path = generate_pdf_report(context)
         elif fmt == "html":
             path = generate_html_report(context)
+        elif fmt in {"fhir", "dicom-sr"}:
+            from medcheck.pipeline.exports import dicom_sr, fhir_report
+
+            report = json.loads(generate_json_report(context))
+            suffix = "json" if fmt == "fhir" else "dcm"
+            path = str(Path(output_dir) / f"report_{uuid4().hex}.{suffix}")
+            if fmt == "fhir":
+                Path(path).write_text(json.dumps(fhir_report(report), indent=2), encoding="utf-8")
+            else:
+                Path(path).write_bytes(dicom_sr(context, report))
         else:
             # Default: JSON
             json_str = generate_json_report(context)
-            timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+            timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S") + "_" + uuid4().hex[:10]
             path = str(Path(output_dir) / f"report_{timestamp}.json")
             Path(path).write_text(json_str, encoding="utf-8")
 

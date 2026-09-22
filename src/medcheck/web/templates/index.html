@@ -700,6 +700,8 @@
       border-radius: var(--radius-pill);
       transition: width 0.5s ease;
     }
+    #progressBar[aria-valuenow="100"] .progress-fill { transition: none; }
+    #deleteBtn { margin-top: 1.5rem; }
     .progress-label {
       font-size: 0.8125rem;
       color: var(--color-graphite-600);
@@ -885,10 +887,40 @@
       .footer-grid { grid-template-columns: 1fr; gap: 2rem; }
       .footer-legal { flex-direction: column; align-items: flex-start; gap: 0.75rem; }
     }
+    [hidden] { display: none !important; }
+    :focus-visible { outline: 3px solid var(--color-teal); outline-offset: 4px; }
+    .skip-link { position: absolute; top: -5rem; left: 1rem; z-index: 200; padding: 1rem; background: white; }
+    .skip-link:focus { top: 1rem; }
+    #formAlert { margin-bottom: 1rem; }
+    .tab-pane h2 { scroll-margin-top: 6rem; }
+    .connection-settings summary { cursor: pointer; color: var(--color-teal); }
+    .connection-settings input { margin-top: .5rem; }
+.plain-checkbox { display: flex; align-items: flex-start; gap: .5rem; margin: 1rem 0; }
+    .plain-checkbox input { min-width: 1.125rem; min-height: 1.125rem; }
+    .analysis-preview, .study-summary { padding: 1rem; border-left: 3px solid var(--color-teal); background: var(--color-teal-50); }
+    .analysis-preview:empty { display: none; }
+    .results-empty { margin: 1rem 0; }
+    .result-section { margin: 1.5rem 0; overflow-wrap: anywhere; }
+    .result-section h3 { margin-bottom: .5rem; }
+    .result-section ul { padding-left: 1.25rem; }
+    .result-finding { padding: 1rem 0; border-bottom: 1px solid var(--color-graphite-200); }
+    .viewer, .review-block { margin-top: 2rem; }
+    .viewer h3 { margin-bottom: 1rem; }
+    .viewer-image { background: #101d21; min-height: 14rem; display: grid; place-items: center; margin: 1rem 0; border-radius: .5rem; }
+    .viewer-image canvas { width: 100%; height: 24rem; object-fit: contain; }
+    #sliceRange { width: 100%; accent-color: var(--color-teal); min-height: 44px; }
+    .downloads-grid .btn { white-space: normal; text-align: center; }
+    #cancelBtn, #resumeBtn { margin-bottom: 1rem; }
+    .footer-tagline, .footer-disclaimer, .footer-legal { color: rgba(255,255,255,.76); }
+    @media (min-width: 49rem) { .pdp-stepper-step:not(.active) .pdp-stepper-label { position: static; width: auto; height: auto; clip-path: none; white-space: normal; } }
+    @media (max-width: 48rem) { .wizard-nav { gap: .75rem; flex-wrap: wrap; } .wizard-nav .btn { flex: 1; justify-content: center; white-space: normal; } .viewer-image canvas { height: 18rem; } .field-wrapper label { white-space: normal; } }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; scroll-behavior: auto !important; animation: none !important; } }
   </style>
 </head>
 <body>
+<div id="uiStrings" hidden {% for key, value in t.items() if key.startswith("ui_") %} data-{{ key|replace("_", "-") }}="{{ value }}"{% endfor %}></div>
 
+<a class="skip-link" href="#main">{{ t.ui_skip }}</a>
 <!-- HEADER — full width, no padding; .is-sticky is added via JS on scroll -->
 <header class="site-header" id="site-header">
   <div class="container header-inner">
@@ -906,7 +938,7 @@
   </div>
 </header>
 
-<main>
+<main id="main">
 
   <!-- PAGE INTRO -->
   <section class="section--sm">
@@ -924,20 +956,10 @@
     <div class="container">
       <div class="page-col">
 
-        <!-- Preview notice: remove when the analyze pipeline is wired up (issue #157) -->
-        <div class="alert alert-warning" role="note" style="margin-bottom: 1.5rem;">
-          <span class="alert__icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"></path><path d="M12 9v4M12 17h.01" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"></path></svg>
-          </span>
-          <div>
-            <h4 class="alert-heading">{{ t.ui_preview_title }}</h4>
-            <p>{{ t.ui_preview_body }}
-              (<a class="alert-link" href="https://github.com/Liohtml/MedCheck/issues/157" rel="noopener">#157</a>)</p>
-            <hr class="alert-divider">
-            <p>{{ t.ui_preview_cli }} <code>medcheck analyze /path/to/scans</code></p>
-          </div>
+        <div class="alert alert-info" role="note" style="margin-bottom: 1.5rem;">
+          <p>{{ t.ui_local_notice }}</p>
         </div>
-
+        <div id="formAlert" hidden role="alert" tabindex="-1" class="alert alert-danger"></div>
         <!-- Stepper -->
         <nav class="pdp-stepper" aria-label="{{ t.ui_step_label }}" style="margin-bottom: 1rem;">
           <div class="pdp-stepper-inner">
@@ -1003,7 +1025,7 @@
                       <p class="dropzone-text"><strong>{{ t.ui_dropzone_cta }}</strong> {{ t.ui_dropzone_or }}</p>
                       <p class="dropzone-meta" id="dropzoneSubtext">{{ t.ui_dropzone_formats }}</p>
                       <input type="file" id="fileInput" name="file"
-                             accept=".dcm,.nii,.nii.gz,.png,.jpg,.jpeg,.tiff,.tif" />
+                             accept=".zip,.dcm,application/zip,application/dicom" />
                     </div>
                     <span class="autodetect" id="autoDetectBadge">
                       <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"></circle><path d="M9 12l2 2 4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"></path></svg>
@@ -1011,24 +1033,16 @@
                     </span>
                   </div>
 
-                  <div class="or-divider" aria-hidden="true">{{ t.ui_or }}</div>
-
-                  <div class="field-wrapper">
-                    <input type="url" class="form-control" id="sourceUrl" name="source_url" placeholder=" " />
-                    <label for="sourceUrl">{{ t.ui_remote_url }}</label>
-                    <span class="field__hint">{{ t.ui_url_hint }}</span>
+                  <div id="uploadStatus" role="status" aria-live="polite"></div>
+                  <div id="studyBlock" hidden class="field-stack">
+                    <div><label for="studySelect">{{ t.ui_study }}</label><select class="form-control" id="studySelect"></select></div>
+                    <div id="studySummary"></div>
                   </div>
-
-                  <div class="grid-2">
-                    <div class="field-wrapper">
-                      <input type="text" class="form-control" id="patientCode" name="patient_code" placeholder=" " />
-                      <label for="patientCode">{{ t.ui_patient_code }}</label>
-                    </div>
-                    <div class="field-wrapper field-wrapper--static">
-                      <input type="date" class="form-control" id="dob" name="dob" />
-                      <label for="dob">{{ t.field_dob }}</label>
-                    </div>
-                  </div>
+                  <details class="connection-settings"><summary>{{ t.ui_connection }}</summary>
+                    <label for="apiKey">{{ t.ui_api_key }}</label>
+                    <input type="password" id="apiKey" class="form-control" autocomplete="off" />
+                    <p class="field__hint">{{ t.ui_api_hint }}</p>
+                  </details>
                 </div>
 
                 <div class="wizard-nav">
@@ -1059,22 +1073,19 @@
                     <span class="field__hint">{{ t.ui_symptoms_hint }}</span>
                   </div>
 
-                  <div class="grid-2">
-                    <div class="field-wrapper">
-                      <input type="text" class="form-control" id="trauma" name="trauma" placeholder=" " />
-                      <label for="trauma">{{ t.ui_trauma }}</label>
-                    </div>
-                    <div class="field-wrapper field-wrapper--static">
-                      <input type="date" class="form-control" id="scanDate" name="scan_date" />
-                      <label for="scanDate">{{ t.field_study_date }}</label>
-                    </div>
+                  <div class="field-wrapper">
+                    <input type="text" class="form-control" id="trauma" name="trauma" placeholder=" " />
+                    <label for="trauma">{{ t.ui_trauma }}</label>
                   </div>
-
                   <div class="field-wrapper">
                     <input type="text" class="form-control" id="suspectedDx" name="suspected_dx" placeholder=" " />
                     <label for="suspectedDx">{{ t.ui_suspected_dx }}</label>
                   </div>
 
+                  <div class="field-wrapper field-wrapper--textarea">
+                    <textarea class="form-control" id="officialReport" rows="3" placeholder=" "></textarea>
+                    <label for="officialReport">{{ t.ui_official_report }}</label>
+                  </div>
                   <div class="field-wrapper field-wrapper--static field-wrapper--select">
                     <select class="form-control" id="anatomy" name="anatomy">
                       <option value="">{{ t.ui_anatomy_placeholder }}</option>
@@ -1122,61 +1133,14 @@
                 </div>
 
                 <div class="field-stack">
-                  <fieldset style="border: none; padding: 0; margin: 0;">
-                    <legend class="overline" style="margin-bottom: 0.75rem; padding: 0;">{{ t.ui_modules }}</legend>
-                    <div class="modules-grid">
-                      <label class="checkbox-wrapper module-tile">
-                        <input type="checkbox" class="checkbox-input" name="modules" value="ml_classification" checked />
-                        <span class="checkbox checkbox--config" aria-hidden="true">
-                          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"></path></svg>
-                        </span>
-                        {{ t.ui_mod_ml }}
-                      </label>
-                      <label class="checkbox-wrapper module-tile">
-                        <input type="checkbox" class="checkbox-input" name="modules" value="vision_segmentation" checked />
-                        <span class="checkbox checkbox--config" aria-hidden="true">
-                          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"></path></svg>
-                        </span>
-                        {{ t.ui_mod_seg }}
-                      </label>
-                      <label class="checkbox-wrapper module-tile">
-                        <input type="checkbox" class="checkbox-input" name="modules" value="anomaly_detection" />
-                        <span class="checkbox checkbox--config" aria-hidden="true">
-                          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"></path></svg>
-                        </span>
-                        {{ t.ui_mod_anomaly }}
-                      </label>
-                      <label class="checkbox-wrapper module-tile">
-                        <input type="checkbox" class="checkbox-input" name="modules" value="measurement" />
-                        <span class="checkbox checkbox--config" aria-hidden="true">
-                          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"></path></svg>
-                        </span>
-                        {{ t.ui_mod_measure }}
-                      </label>
-                      <label class="checkbox-wrapper module-tile">
-                        <input type="checkbox" class="checkbox-input" name="modules" value="comparison" />
-                        <span class="checkbox checkbox--config" aria-hidden="true">
-                          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"></path></svg>
-                        </span>
-                        {{ t.ui_mod_compare }}
-                      </label>
-                      <label class="checkbox-wrapper module-tile">
-                        <input type="checkbox" class="checkbox-input" name="modules" value="report_gen" checked />
-                        <span class="checkbox checkbox--config" aria-hidden="true">
-                          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"></path></svg>
-                        </span>
-                        {{ t.ui_mod_report }}
-                      </label>
-                    </div>
-                  </fieldset>
-
                   <div class="grid-2">
                     <div class="field-wrapper field-wrapper--static field-wrapper--select">
                       <select class="form-control" id="modelSelect" name="model">
+                        <option value="local" selected>{{ t.ui_model_local }}</option>
+                        <option value="local-vision" disabled>{{ t.ui_model_local_vision }}</option>
                         <option value="claude">{{ t.ui_model_claude }}</option>
                         <option value="openai">{{ t.ui_model_openai }}</option>
                         <option value="gemini">{{ t.ui_model_gemini }}</option>
-                        <option value="local">{{ t.ui_model_local }}</option>
                       </select>
                       <label for="modelSelect">{{ t.ui_model }}</label>
                     </div>
@@ -1191,17 +1155,10 @@
                     </div>
                   </div>
 
-                  <div class="field-wrapper field-wrapper--static field-wrapper--select">
-                    <select class="form-control" id="reportFormat" name="report_format">
-                      <option value="pdf">{{ t.ui_fmt_pdf }}</option>
-                      <option value="json">{{ t.ui_fmt_json }}</option>
-                      <option value="html">{{ t.ui_fmt_html }}</option>
-                    </select>
-                    <label for="reportFormat">{{ t.ui_report_format }}</label>
-                  </div>
-
+                  <p class="field__hint" id="modelHint">{{ t.ui_local_notice }}</p>
+                  <div id="analysisPreview" class="analysis-preview" role="status"></div>
                   <!-- Cloud LLM consent — shown for cloud models only -->
-                  <div class="consent-box is-visible" id="consentBlock">
+                  <div class="consent-box" id="consentBlock">
                     <label class="checkbox-wrapper">
                       <input type="checkbox" class="checkbox-input" id="consentCheck" name="allow_cloud_llm" value="true" />
                       <span class="checkbox checkbox--filter" aria-hidden="true">
@@ -1210,6 +1167,15 @@
                       {{ t.ui_consent_label }}
                     </label>
                     <p class="consent-hint">{{ t.ui_consent_hint }}</p>
+                    <label class="plain-checkbox"><input type="checkbox" id="deidentify" checked /> {{ t.ui_deidentify }}</label>
+                    <div id="ocrBlock" hidden>
+                      <label class="plain-checkbox"><input type="checkbox" id="ocrRedact" aria-describedby="ocrHint" /> {{ t.ui_ocr }}</label>
+                      <p class="field__hint" id="ocrHint">{{ t.ui_ocr_hint }}</p>
+                    </div>
+                    <label class="plain-checkbox"><input type="checkbox" id="pixelsReviewed" /> {{ t.ui_pixel_check }}</label>
+                    <label for="budget">{{ t.ui_budget }}</label>
+                    <input type="number" id="budget" class="form-control" min="0.01" step="0.01" aria-describedby="budgetHint" />
+                    <p class="field__hint" id="budgetHint">{{ t.ui_budget_hint }}</p>
                   </div>
                 </div>
 
@@ -1249,73 +1215,28 @@
               <h2>{{ t.ui_results }}</h2>
             </div>
 
-            <div id="progressWrap">
-              <div class="progress-track">
+            <div id="progressWrap" aria-live="polite">
+              <div class="progress-track" id="progressBar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="{{ t.ui_step3 }}">
                 <div class="progress-fill" id="progressFill"></div>
               </div>
               <p class="progress-label" id="progressLabel">{{ t.ui_progress_waiting }}</p>
             </div>
 
+            <button type="button" class="btn btn-secondary" id="cancelBtn" hidden>{{ t.ui_cancel }}</button>
+            <button type="button" class="btn btn-secondary" id="resumeBtn" hidden>{{ t.ui_resume }}</button>
             <div id="resultsContent" class="results-empty">{{ t.ui_no_results }}</div>
 
-            <div class="downloads-grid">
-              <div class="file-download is-disabled" aria-disabled="true">
-                <div class="file-download__icon" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"></path><path d="M14 2v6h6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"></path><path d="M9 13h6M9 17h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"></path></svg>
-                  <span>PDF</span>
-                </div>
-                <div class="file-download__info">
-                  <div class="file-download__title">{{ t.ui_dl_pdf }}</div>
-                  <div class="file-download__meta">{{ t.ui_dl_pending }}</div>
-                </div>
-                <div class="file-download__btn" aria-hidden="true">
-                  <svg viewBox="0 0 14 14" fill="none">
-                    <path d="M7 1v8M3.5 6.5L7 10l3.5-3.5"
-                      stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-                    <line x1="2" y1="13" x2="12" y2="13"
-                      stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-                  </svg>
-                </div>
-              </div>
-
-              <div class="file-download is-disabled" aria-disabled="true">
-                <div class="file-download__icon" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="9" y="9" width="6" height="6" rx="0" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"></rect><path d="M9 2v2M15 2v2M9 20v2M15 20v2M2 9h2M2 15h2M20 9h2M20 15h2M9 9h.01M15 9h.01M9 15h.01M15 15h.01" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"></path></svg>
-                  <span>JSON</span>
-                </div>
-                <div class="file-download__info">
-                  <div class="file-download__title">{{ t.ui_dl_json }}</div>
-                  <div class="file-download__meta">{{ t.ui_dl_pending }}</div>
-                </div>
-                <div class="file-download__btn" aria-hidden="true">
-                  <svg viewBox="0 0 14 14" fill="none">
-                    <path d="M7 1v8M3.5 6.5L7 10l3.5-3.5"
-                      stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-                    <line x1="2" y1="13" x2="12" y2="13"
-                      stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-                  </svg>
-                </div>
-              </div>
-
-              <div class="file-download is-disabled" aria-disabled="true">
-                <div class="file-download__icon" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"></rect><circle cx="8.5" cy="8.5" r="1.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"></circle><path d="M21 15l-5-5L5 21" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"></path></svg>
-                  <span>PNG</span>
-                </div>
-                <div class="file-download__info">
-                  <div class="file-download__title">{{ t.ui_dl_images }}</div>
-                  <div class="file-download__meta">{{ t.ui_dl_pending }}</div>
-                </div>
-                <div class="file-download__btn" aria-hidden="true">
-                  <svg viewBox="0 0 14 14" fill="none">
-                    <path d="M7 1v8M3.5 6.5L7 10l3.5-3.5"
-                      stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-                    <line x1="2" y1="13" x2="12" y2="13"
-                      stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-                  </svg>
-                </div>
-              </div>
-            </div>
+            <div id="downloads" class="downloads-grid" hidden></div>
+            <button type="button" class="btn btn-secondary" id="deleteBtn" hidden>{{ t.ui_delete }}</button>
+            <section id="viewer" hidden class="viewer">
+              <h3>{{ t.ui_viewer }}</h3>
+              <label for="seriesSelect">{{ t.ui_series }}</label>
+              <select id="seriesSelect" class="form-control"></select>
+              <div class="viewer-image"><canvas id="sliceImage" role="img" aria-label="{{ t.ui_slice_alt }}"></canvas></div>
+              <label for="sliceRange" id="sliceLabel">{{ t.ui_slice }}</label>
+              <input id="sliceRange" type="range" min="0" max="0" value="0" />
+              <p class="field__hint">{{ t.ui_viewer_hint }}</p>
+            </section>
 
           </div>
         </div>

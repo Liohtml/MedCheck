@@ -17,20 +17,22 @@ COPY workflows/ workflows/
 
 # === Lite (cloud APIs only, ~500MB) ===
 FROM base AS lite
-RUN uv sync --no-dev --locked --no-cache \
+RUN uv sync --no-dev --extra cloud --locked --no-cache \
+ && mkdir -p /app/.medcheck \
  && chown -R medcheck:medcheck /app
 EXPOSE 8080
 ENV MEDCHECK_HOST=0.0.0.0
 ENV MEDCHECK_PORT=8080
 USER medcheck
-CMD ["uv", "run", "medcheck", "serve"]
+CMD ["/app/.venv/bin/medcheck", "serve"]
 
 # === Full (with local ML models, ~10GB) ===
 FROM base AS full
-RUN uv sync --no-dev --extra local-models --locked --no-cache \
+RUN uv sync --no-dev --extra cloud --extra local-models --locked --no-cache \
+ && mkdir -p /app/.medcheck \
  && chown -R medcheck:medcheck /app
 EXPOSE 8080
 ENV MEDCHECK_HOST=0.0.0.0
 ENV MEDCHECK_PORT=8080
 USER medcheck
-CMD ["uv", "run", "medcheck", "serve"]
+CMD ["/app/.venv/bin/medcheck", "serve"]

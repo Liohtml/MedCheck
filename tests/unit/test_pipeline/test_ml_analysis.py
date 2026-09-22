@@ -60,7 +60,7 @@ def test_analyze_signal_intensity():
 
 
 def test_ml_step_runs_on_volumes():
-    ctx = PipelineContext()
+    ctx = PipelineContext(step_config={"backend": "statistical"})
     ctx.volumes = {
         "test_series": np.random.rand(5, 64, 64).astype(np.float32),
     }
@@ -105,3 +105,56 @@ def test_extract_features_falls_back_on_import_error():
     with patch.object(ml_analysis, "_resnet_features", side_effect=ImportError("No module named 'torch'")):
         features = ml_analysis.extract_features(volume)
     assert features.shape == (2, 10)
+
+
+def test_signal_uses_shared_threshold_to_distinguish_bright_slices():
+    volume = np.tile(np.linspace(0, 1, 64).reshape(8, 8), (10, 1, 1))
+    volume[3] *= 5
+    stats = analyze_signal_intensity(volume)
+    assert stats.high_signal_ratio[3] > 0.4
+    assert stats.high_signal_ratio[0] == 0
+    assert 3 in stats.high_signal_slices
+
+
+def test_statistical_backend_never_initializes_resnet_or_downloads():
+    ctx = PipelineContext(volumes={"s": np.ones((2, 8, 8))}, step_config={"backend": "statistical"})
+    with patch.object(ml_analysis, "_resnet_features") as resnet:
+        MLAnalysisStep().run(ctx)
+    resnet.assert_not_called()
+    assert ctx.analysis_provenance["ml_backend_requested"] == "statistical"
+    assert len(ctx.anomaly_scores["s"]) == 2
+
+
+def test_resnet_eval_and_batch_size_invariance_without_weight_download(monkeypatch):
+    torch = pytest.importorskip("torch")
+    torchvision = pytest.importorskip("torchvision")
+    real_resnet18 = torchvision.models.resnet18
+    requested_weights = []
+
+    def offline_resnet18(*, weights):
+        requested_weights.append(weights)
+        torch.manual_seed(42)
+        return real_resnet18(weights=None)
+
+    monkeypatch.setattr(torchvision.models, "resnet18", offline_resnet18)
+    monkeypatch.setenv("MEDCHECK_ML_DEVICE", "cpu")
+    extractor = ml_analysis._build_feature_extractor()
+    assert requested_weights == [torchvision.models.ResNet18_Weights.IMAGENET1K_V1]
+    assert all(not module.training for module in extractor.modules())
+    assert all(not parameter.requires_grad for parameter in extractor.parameters())
+    assert next(extractor.parameters()).device.type == "cpu"
+    monkeypatch.setattr(ml_analysis, "_feature_extractor", extractor)
+    volume = np.random.default_rng(123).random((4, 32, 32), dtype=np.float32)
+    original_threads = torch.get_num_threads()
+    try:
+        torch.set_num_threads(1)
+        monkeypatch.setenv("MEDCHECK_ML_BATCH_SIZE", "1")
+        single = ml_analysis._resnet_features(volume)
+        monkeypatch.setenv("MEDCHECK_ML_BATCH_SIZE", "3")
+        batched = ml_analysis._resnet_features(volume)
+    finally:
+        torch.set_num_threads(original_threads)
+    assert single.shape == batched.shape == (4, 512)
+    assert np.isfinite(single).all()
+    assert not np.array_equal(single[0], single[1])
+    np.testing.assert_allclose(single, batched, rtol=1e-4, atol=1e-5)

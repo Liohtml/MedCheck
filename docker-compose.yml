@@ -9,6 +9,13 @@ services:
       # network, change to "8080:8080" AND set MEDCHECK_API_KEY in .env.
       - "127.0.0.1:8080:8080"
     env_file: .env
+    environment:
+      MEDCHECK_DATA_ROOT: /data
+      MEDCHECK_STATE_DIR: /app/.medcheck
     volumes:
       - ./data:/data:ro
       - ./output:/output
+      - medcheck-state:/app/.medcheck
+
+volumes:
+  medcheck-state:

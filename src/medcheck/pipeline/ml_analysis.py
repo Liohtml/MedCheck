@@ -6,6 +6,7 @@ No API key required.
 
 from __future__ import annotations
 
+import os
 import threading
 from typing import Any
 
@@ -33,6 +34,8 @@ def _build_feature_extractor() -> Any:
     model = models.resnet18(weights=models.ResNet18_Weights.IMAGENET1K_V1)
     extractor = torch.nn.Sequential(*list(model.children())[:-1])
     extractor.requires_grad_(False)
+    extractor.eval()
+    extractor.to(os.environ.get("MEDCHECK_ML_DEVICE", "cpu"))
     return extractor
 
 
@@ -60,10 +63,12 @@ def compute_anomaly_scores(features: np.ndarray[Any, np.dtype[Any]]) -> np.ndarr
 
 
 def analyze_signal_intensity(volume: np.ndarray) -> SignalStats:
-    """Analyze per-slice signal intensity. High signal on PD FS = fluid/edema."""
+    """Describe intensity using one volume-wide foreground threshold; not diagnostic."""
     mean_int = [float(volume[i].mean()) for i in range(volume.shape[0])]
     max_int = [float(volume[i].max()) for i in range(volume.shape[0])]
-    high_ratio = [float((volume[i] > np.percentile(volume[i], 95)).mean()) for i in range(volume.shape[0])]
+    foreground = volume[volume > volume.min()]
+    threshold = float(np.percentile(foreground, 95)) if foreground.size else float(volume.max())
+    high_ratio = [float((volume[i] > threshold).mean()) for i in range(volume.shape[0])]
 
     mean_hr = np.mean(high_ratio)
     std_hr = np.std(high_ratio)
@@ -92,16 +97,18 @@ def _resnet_features(volume: np.ndarray) -> np.ndarray:
         ]
     )
 
+    batch_size = max(1, min(128, int(os.environ.get("MEDCHECK_ML_BATCH_SIZE", "16"))))
+    device = next(feature_extractor.parameters()).device
     features = []
-    with torch.no_grad():
-        for i in range(volume.shape[0]):
-            sl = volume[i]
-            sl_uint8 = ((sl - sl.min()) / (sl.max() - sl.min() + 1e-8) * 255).astype(np.uint8)
-            img = Image.fromarray(sl_uint8).convert("RGB")
-            tensor = transform(img).unsqueeze(0)
-            feat = feature_extractor(tensor).squeeze().numpy()
-            features.append(feat)
-    return np.array(features)
+    with torch.inference_mode():
+        for start in range(0, volume.shape[0], batch_size):
+            tensors = []
+            for sl in volume[start : start + batch_size]:
+                sl_uint8 = (np.clip(sl, 0, 1) * 255).astype(np.uint8)
+                tensors.append(transform(Image.fromarray(sl_uint8).convert("RGB")))
+            batch = torch.stack(tensors).to(device)
+            features.append(feature_extractor(batch).flatten(1).cpu().numpy())
+    return np.concatenate(features, axis=0)
 
 
 def _statistical_features(volume: np.ndarray) -> np.ndarray:
@@ -153,11 +160,26 @@ class MLAnalysisStep(PipelineStep):
         return bool(context.volumes)
 
     def run(self, context: PipelineContext) -> PipelineContext:
+        note = (
+            "Local anomaly scores are relative within each series, not disease probabilities. "
+            "Signal statistics describe brightness and do not establish a diagnosis."
+        )
+        if note not in context.limitations:
+            context.limitations.append(note)
+        backend = context.step_config.get("backend", "auto")
+        if backend not in {"auto", "statistical", "resnet"}:
+            raise ValueError("ML backend must be auto, statistical, or resnet")
+        context.analysis_provenance["ml_backend_requested"] = backend
         for series_name, volume in context.volumes.items():
             console.print(f"  [blue]Analyzing {series_name} ({volume.shape[0]} slices)...[/blue]")
 
             # Feature extraction + anomaly scores
-            features = extract_features(volume)
+            if backend == "statistical":
+                features = _statistical_features(volume)
+            elif backend == "resnet":
+                features = _resnet_features(volume)
+            else:
+                features = extract_features(volume)
             scores = compute_anomaly_scores(features)
             context.anomaly_scores[series_name] = scores.tolist()
 

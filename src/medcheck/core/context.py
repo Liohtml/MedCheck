@@ -49,6 +49,8 @@ class StructureFinding:
     confidence: float = 0.0
     slices_evaluated: int = 0
     secondary_signs: list[str] = field(default_factory=list)
+    image_references: list[dict[str, Any]] = field(default_factory=list)
+    review_status: str = "unreviewed"
 
 
 @dataclass
@@ -95,3 +97,12 @@ class PipelineContext:
     report_language: str = "en"
     output_dir: str = ""
     step_config: dict[str, Any] = field(default_factory=dict)
+    study_instance_uid: str = ""
+    slice_references: dict[str, list[dict[str, Any]]] = field(default_factory=dict)
+    quality_checks: dict[str, list[str]] = field(default_factory=dict)
+    analysis_provenance: dict[str, Any] = field(default_factory=dict)
+    review_history: list[dict[str, Any]] = field(default_factory=list)
+    reconciliation: dict[str, Any] = field(default_factory=dict)
+    official_report: str = ""
+    pixels_reviewed: bool = False
+    redactions: dict[str, list[list[int]]] = field(default_factory=dict)

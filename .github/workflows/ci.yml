@@ -16,7 +16,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v7
-      - run: uv sync --all-extras --locked
+      - run: uv sync --extra dev --locked
       - run: uv run ruff check src/ tests/
       - run: uv run ruff format --check src/ tests/
 
@@ -25,7 +25,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v7
-      - run: uv sync --all-extras --locked
+      - run: uv sync --extra dev --locked
       - run: uv run mypy src/medcheck
 
   security:
@@ -33,7 +33,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v7
-      - run: uv sync --all-extras --locked
+      - run: uv sync --extra dev --locked
       - run: uv run bandit -r src/medcheck -ll -q
 
   test:
@@ -55,3 +55,54 @@ jobs:
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           file: ./coverage.xml
+
+  provider-install:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - extra: claude
+            module: anthropic
+          - extra: openai
+            module: openai
+          - extra: gemini
+            module: google.genai
+          - extra: cloud
+            module: anthropic, openai, google.genai
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v7
+        with:
+          python-version: "3.10"
+      - run: uv sync --no-dev --extra ${{ matrix.extra }} --locked
+      - run: uv run --no-sync python -c "import ${{ matrix.module }}; import medcheck.llm.router"
+
+  browser:
+    runs-on: ubuntu-latest
+    env:
+      MEDCHECK_API_KEY: browser-test-only
+      MEDCHECK_RATE_LIMIT: "0"
+      MEDCHECK_STATE_DIR: /tmp/medcheck-browser-state
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v7
+        with:
+          python-version: "3.13"
+      - run: uv sync --extra dev --locked
+      - run: uv run --with playwright playwright install --with-deps chromium
+      - name: Test the real browser workflow with synthetic DICOM
+        shell: bash
+        run: |
+          .venv/bin/medcheck serve --port 8765 > /tmp/medcheck-browser.log 2>&1 &
+          medcheck_server_pid=$!
+          trap 'kill "$medcheck_server_pid"' EXIT
+          for attempt in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:8765/health; then break; fi
+            sleep 1
+          done
+          uv run --with playwright python tests/browser/web_user_journey.py --api-key browser-test-only
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: browser-screenshots
+          path: artifacts/ui/

@@ -5,6 +5,8 @@ repos:
       - id: check-yaml
       - id: check-toml
       - id: end-of-file-fixer
+        # Preserve exact vendored bytes: index.html pins the script with SRI.
+        exclude: "^src/medcheck/web/static/htmx\\.min\\.js$"
       - id: trailing-whitespace
       - id: no-commit-to-branch
         args: [--branch, main]

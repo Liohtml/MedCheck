@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib
 import os
 from typing import Any
 
@@ -25,7 +26,13 @@ class GeminiProvider(LLMProvider):
         self.model = model or os.environ.get("MEDCHECK_GEMINI_MODEL", "gemini-3.5-flash")
 
     def check_available(self) -> bool:
-        return bool(os.environ.get("GOOGLE_API_KEY"))
+        if not os.environ.get("GOOGLE_API_KEY"):
+            return False
+        try:
+            importlib.import_module("google.genai")
+        except ImportError:
+            return False
+        return True
 
     def analyze_images(
         self,
@@ -33,25 +40,34 @@ class GeminiProvider(LLMProvider):
         prompt: str,
         context: ClinicalContext | None,
     ) -> AnalysisResult:
-        import google.generativeai as genai
+        from google import genai
+        from google.genai import types
 
         api_key = os.environ.get("GOOGLE_API_KEY")
         if not api_key:
             raise RuntimeError("GOOGLE_API_KEY not set")
-        genai.configure(api_key=api_key)
-        model = genai.GenerativeModel(self.model)
+        client = genai.Client(
+            api_key=api_key,
+            http_options=types.HttpOptions(
+                timeout=int(llm_timeout() * 1000),
+                retry_options=types.HttpRetryOptions(attempts=1),
+            ),
+        )
 
         parts: list[Any] = []
         for img in images:
-            parts.append({"mime_type": "image/png", "data": img.image_bytes})
+            parts.append(types.Part.from_bytes(data=img.image_bytes, mime_type="image/png"))
             if img.description:
                 parts.append(img.description)
 
         parts.append(prompt)
 
         def _request() -> str:
-            response = model.generate_content(parts, request_options={"timeout": llm_timeout()})
-            return str(response.text)
+            response = client.models.generate_content(model=self.model, contents=parts)
+            return str(response.text or "")
 
-        raw = call_with_retries(_request, provider=self.name)
-        return parse_llm_response(raw)
+        try:
+            raw = call_with_retries(_request, provider=self.name)
+            return parse_llm_response(raw)
+        finally:
+            client.close()
