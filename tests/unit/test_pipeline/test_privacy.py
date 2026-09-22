@@ -189,3 +189,58 @@ def test_redacted_series_names_do_not_collide_or_break_finding_references():
     assert len(ctx.volumes) == 2
     assert list(ctx.volumes) == ["[redacted] knee", "[redacted] knee (2)"]
     assert ctx.findings[0].image_references[0]["series_name"] == "[redacted] knee (2)"
+
+
+def test_ocr_adapter_masks_padded_clipped_boxes_without_retaining_text(monkeypatch):
+    import json
+    from types import SimpleNamespace
+
+    calls = []
+
+    def image_to_data(image, *, output_type, timeout):
+        calls.append((image.copy(), output_type, timeout))
+        return {
+            "text": [" ", "SYNTHETIC IDENTIFIER", "outside image"],
+            "left": [0, 8, 20],
+            "top": [0, 8, 20],
+            "width": [0, 4, 2],
+            "height": [0, 4, 2],
+        }
+
+    fake_ocr = SimpleNamespace(Output=SimpleNamespace(DICT="dict"), image_to_data=image_to_data)
+    monkeypatch.setattr("medcheck.pipeline.privacy.importlib.import_module", lambda name: fake_ocr)
+    pixels = np.ones((1, 10, 10), dtype=np.float32)
+    pixels[0, 0, :2] = [-0.5, 1.5]
+    ctx = PipelineContext(volumes={"s": pixels}, step_config={"ocr": True})
+    apply_pixel_redactions(ctx)
+    sent, output_type, timeout = calls[0]
+    assert sent.dtype == np.uint8
+    assert sent[0, :2].tolist() == [0, 255]
+    assert output_type == "dict" and timeout == 15
+    assert np.all(ctx.volumes["s"][0, 6:10, 6:10] == 0)
+    assert np.all(pixels[0, 6:10, 6:10] == 1)
+    assert ctx.analysis_provenance["ocr_redactions"]["s"] == [{"slice_index": 0, "rectangle": [6, 6, 4, 4]}]
+    assert "SYNTHETIC IDENTIFIER" not in json.dumps(ctx.analysis_provenance)
+    assert not ctx.pixels_reviewed
+
+
+def test_missing_ocr_installation_stops_before_altering_pixels(monkeypatch):
+    def missing_module(name):
+        raise ImportError("pytesseract not installed")
+
+    monkeypatch.setattr("medcheck.pipeline.privacy.importlib.import_module", missing_module)
+    pixels = np.ones((1, 4, 4))
+    ctx = PipelineContext(volumes={"s": pixels}, step_config={"ocr": True})
+    with pytest.raises(RuntimeError, match="privacy extra"):
+        apply_pixel_redactions(ctx)
+    assert ctx.volumes["s"] is pixels
+    assert np.all(pixels == 1)
+
+
+@pytest.mark.parametrize("config", [{"redactions": {"missing": [[0, 0, 1, 1]]}}, {"step_config": {"ocr": "yes"}}])
+def test_invalid_privacy_configuration_does_not_mask_any_images(config):
+    pixels = np.ones((1, 4, 4))
+    ctx = PipelineContext(volumes={"s": pixels}, **config)
+    with pytest.raises(ValueError):
+        apply_pixel_redactions(ctx)
+    assert ctx.volumes["s"] is pixels

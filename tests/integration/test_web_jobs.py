@@ -370,3 +370,65 @@ def test_decoded_pixel_limit_checked_before_preprocessing(client, monkeypatch):
     job = _finished(client, _submit(client, _upload(client)))
     assert job["status"] == "failed"
     assert "decoded image limit" in job["error"]
+
+
+def test_delete_closes_mapped_images_even_when_a_view_is_retained(client, settings):
+    job_id = _submit(client, _upload(client))
+    assert _finished(client, job_id)["status"] == "completed"
+    db = client.app.state.jobs
+    mapped = next(iter(db.contexts[job_id].volumes.values()))
+    retained_view = mapped[0]
+    mapping = mapped._mmap
+    assert not mapping.closed
+    response = client.delete(f"/api/jobs/{job_id}")
+    assert response.status_code == 200
+    # Holding a NumPy view must not leave a Windows file handle open after deletion.
+    assert mapping.closed
+    assert retained_view.base is mapped
+    assert not (Path(settings.state_dir) / job_id).exists()
+
+
+def test_delete_failure_remains_visible_and_retryable(client, settings, monkeypatch):
+    job_id = _submit(client, _upload(client))
+    assert _finished(client, job_id)["status"] == "completed"
+    folder = Path(settings.state_dir) / job_id
+
+    def locked_directory(path, ignore_errors=False):
+        if not ignore_errors:
+            raise PermissionError("synthetic file lock")
+
+    with monkeypatch.context() as patcher:
+        patcher.setattr("medcheck.web.jobs.shutil.rmtree", locked_directory)
+        response = client.delete(f"/api/jobs/{job_id}")
+    assert response.status_code == 409
+    assert "retry" in response.json()["detail"].lower()
+    assert "synthetic file lock" not in response.text
+    assert folder.exists()
+    remaining = client.get(f"/api/jobs/{job_id}")
+    assert remaining.status_code == 200
+    assert remaining.json()["viewer_available"] is False
+    assert (folder / "status.json").exists()
+    assert client.delete(f"/api/jobs/{job_id}").status_code == 200
+    assert client.get(f"/api/jobs/{job_id}").status_code == 404
+    assert not folder.exists()
+
+
+def test_viewer_snapshot_is_independent_of_mapping_lifetime(client):
+    job_id = _submit(client, _upload(client))
+    assert _finished(client, job_id)["status"] == "completed"
+    db = client.app.state.jobs
+    snapshot = db.read_slice(job_id, 0, 0)
+    expected = snapshot.copy()
+    assert not isinstance(snapshot, np.memmap)
+    mapping = next(iter(db.contexts[job_id].volumes.values()))._mmap
+    assert client.delete(f"/api/jobs/{job_id}").status_code == 200
+    assert mapping.closed
+    np.testing.assert_array_equal(snapshot, expected)
+
+
+def test_shutdown_closes_mapped_images(settings):
+    with TestClient(create_app(settings)) as client:
+        job_id = _submit(client, _upload(client))
+        assert _finished(client, job_id)["status"] == "completed"
+        mapping = next(iter(client.app.state.jobs.contexts[job_id].volumes.values()))._mmap
+    assert mapping.closed

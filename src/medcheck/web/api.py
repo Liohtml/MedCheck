@@ -132,11 +132,14 @@ def install_api(app: FastAPI, settings: Settings, guard: Any, rate_limit: Any) -
 
     @router.delete("/jobs/{job_id}")
     def delete(job_id: str, request: Request) -> dict[str, str]:
-        job(job_id, request)
         try:
             store(request).delete(job_id)
+        except KeyError as exc:
+            raise HTTPException(404, "Analysis not found.") from exc
         except ValueError as exc:
             raise HTTPException(409, str(exc)) from exc
+        except OSError as exc:
+            raise HTTPException(409, "Analysis files could not be deleted. Check storage access and retry.") from exc
         return {"status": "deleted"}
 
     @router.patch("/jobs/{job_id}/findings/{index}")
@@ -149,14 +152,14 @@ def install_api(app: FastAPI, settings: Settings, guard: Any, rate_limit: Any) -
 
     @router.get("/jobs/{job_id}/images/{series_index}/{slice_index}")
     def image(job_id: str, series_index: int, slice_index: int, request: Request) -> Response:
-        job(job_id, request)
-        ctx = store(request).contexts.get(job_id)
-        if ctx is None:
-            raise HTTPException(409, "Image viewer unavailable after restart. Run the analysis again.")
-        volumes = list(ctx.volumes.values())
-        if not 0 <= series_index < len(volumes) or not 0 <= slice_index < volumes[series_index].shape[0]:
-            raise HTTPException(404, "Image not found.")
-        arr = volumes[series_index][slice_index]
+        try:
+            arr = store(request).read_slice(job_id, series_index, slice_index)
+        except KeyError as exc:
+            raise HTTPException(404, "Analysis not found.") from exc
+        except IndexError as exc:
+            raise HTTPException(404, "Image not found.") from exc
+        except ValueError as exc:
+            raise HTTPException(409, str(exc)) from exc
         png = io.BytesIO()
         Image.fromarray((arr.clip(0, 1) * 255).astype("uint8")).save(png, format="PNG")
         return Response(png.getvalue(), media_type="image/png")

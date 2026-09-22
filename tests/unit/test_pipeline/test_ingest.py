@@ -76,3 +76,32 @@ def test_ingest_step_requires_authentication():
     ctx.credentials = {}  # no access code -> authenticate() returns False
     with pytest.raises(PermissionError, match="Authentication failed"):
         IngestStep().run(ctx)
+
+
+def test_multiple_studies_require_selection_and_never_mix_patients(tmp_path):
+    import pytest
+
+    study_ids = [generate_uid(), generate_uid()]
+    for index, uid in enumerate(study_ids):
+        path = tmp_path / f"study-{index}.dcm"
+        _create_test_dicom(path, "Same series description", 1)
+        ds = pydicom.dcmread(path)
+        ds.StudyInstanceUID = uid
+        ds.SeriesInstanceUID = generate_uid()
+        ds.PatientID = f"synthetic-{index}"
+        ds.save_as(path)
+    with pytest.raises(ValueError, match="Multiple studies"):
+        IngestStep().run(PipelineContext(source=str(tmp_path)))
+    ctx = IngestStep().run(PipelineContext(source=str(tmp_path), study_instance_uid=study_ids[1]))
+    assert ctx.patient.patient_id == "synthetic-1"
+    assert len(ctx.dicom_series) == 1
+    assert all(str(ds.StudyInstanceUID) == study_ids[1] for ds in ctx.dicom_series[0].slices)
+    with pytest.raises(ValueError, match="No readable DICOM"):
+        IngestStep().run(PipelineContext(source=str(tmp_path), study_instance_uid=generate_uid()))
+
+
+def test_empty_source_cannot_produce_a_successful_ingest(tmp_path):
+    import pytest
+
+    with pytest.raises(ValueError, match="No readable DICOM"):
+        IngestStep().run(PipelineContext(source=str(tmp_path)))

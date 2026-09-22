@@ -19,6 +19,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Browser user-journey tests across desktop/mobile, four UI locales and failure states.
 
 ### Fixed
+- Explicitly close viewer memory maps before deletion/shutdown, copy viewer slices
+  under the store lock, and retain failed deletions for retry instead of reporting
+  success while files remain on Windows.
 - Series collisions, slice ordering/decoding, ResNet evaluation mode/batching, signal
   metric semantics, unfair image allocation and overwritten processing warnings.
 - Missing cloud SDKs; Gemini now uses google-genai. Docker preserves installed extras.

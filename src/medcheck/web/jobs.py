@@ -132,6 +132,19 @@ def context_from_report(report: dict[str, Any], folder: Path) -> PipelineContext
     return ctx
 
 
+def _close_volumes(context: PipelineContext) -> None:
+    """Release owned mmap handles explicitly, including when NumPy views survive.
+
+    Store callers hold the lock; read_slice only exposes independent copies so
+    a viewer request cannot use a mapping while it is being closed.
+    """
+    for volume in context.volumes.values():
+        mapping = getattr(volume, "_mmap", None)
+        if mapping is not None:
+            mapping.close()
+    context.volumes.clear()
+
+
 class JobStore:
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
@@ -375,17 +388,37 @@ class JobStore:
                 self._save(job_id)
             return self.get(job_id)
 
+    def read_slice(self, job_id: str, series_index: int, slice_index: int) -> np.ndarray[Any, np.dtype[Any]]:
+        """Copy one image under the deletion lock; no file-backed views escape."""
+        with self.lock:
+            if job_id not in self.jobs:
+                raise KeyError("Analysis not found")
+            context = self.contexts.get(job_id)
+            if context is None:
+                raise ValueError("Image viewer unavailable. Run the analysis again.")
+            volumes = list(context.volumes.values())
+            if not 0 <= series_index < len(volumes) or not 0 <= slice_index < volumes[series_index].shape[0]:
+                raise IndexError("Image not found")
+            return np.array(volumes[series_index][slice_index], copy=True)
+
     def delete(self, job_id: str) -> None:
         with self.lock:
             job = self.get(job_id)
             if job["status"] in {"queued", "running"}:
                 raise ValueError("Cancel the analysis and wait for it to stop before deleting it.")
-            self.jobs.pop(job_id)
             context = self.contexts.pop(job_id, None)
             if context:
-                context.volumes.clear()
+                _close_volumes(context)
+            self.jobs[job_id]["viewer_available"] = False
+            try:
+                shutil.rmtree(self.root / job_id)
+            except OSError:
+                # A partial deletion must not disappear from the catalog or be
+                # reported as successful. Restore status for a later retry.
+                self._save(job_id)
+                raise ValueError("Analysis files could not be deleted. Close other file users and retry.") from None
+            self.jobs.pop(job_id)
             self.cancels.pop(job_id, None)
-            shutil.rmtree(self.root / job_id, ignore_errors=True)
 
     def review(self, job_id: str, index: int, req: ReviewRequest) -> dict[str, Any]:
         with self.lock:
@@ -418,7 +451,10 @@ class JobStore:
             return cast(dict[str, Any], report)
 
     def close(self) -> None:
-        for event in self.cancels.values():
-            event.set()
-        self.pool.shutdown(wait=False, cancel_futures=True)
-        self.contexts.clear()
+        with self.lock:
+            for event in self.cancels.values():
+                event.set()
+            self.pool.shutdown(wait=False, cancel_futures=True)
+            for context in self.contexts.values():
+                _close_volumes(context)
+            self.contexts.clear()
