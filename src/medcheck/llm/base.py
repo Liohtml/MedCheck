@@ -154,6 +154,8 @@ def _coerce_structure_finding(s: dict[str, Any]) -> StructureFinding | None:
         finding.slices_evaluated = 0
     signs = s.get("secondary_signs", [])
     finding.secondary_signs = [str(x) for x in signs] if isinstance(signs, list) else []
+    references = s.get("image_references", [])
+    finding.image_references = [r for r in references if isinstance(r, dict)] if isinstance(references, list) else []
     # Drop entries with no identifying content at all.
     if not finding.name and not finding.findings:
         return None
@@ -170,13 +172,19 @@ def parse_llm_response(raw: str) -> AnalysisResult:
         structures = [f for f in (_coerce_structure_finding(s) for s in raw_structures) if f is not None]
         return AnalysisResult(
             structures=structures,
-            overall_impression=data.get("overall_impression", ""),
-            clinical_correlation=data.get("clinical_correlation", ""),
-            limitations=data.get("limitations", []),
+            overall_impression=str(data.get("overall_impression", "") or ""),
+            clinical_correlation=str(data.get("clinical_correlation", "") or ""),
+            limitations=[str(x) for x in data.get("limitations", [])]
+            if isinstance(data.get("limitations", []), list)
+            else ["Invalid limitations returned by model"],
             raw_response=raw,
         )
     except (ValueError, json.JSONDecodeError, TypeError):
-        return AnalysisResult(overall_impression=raw, raw_response=raw)
+        return AnalysisResult(
+            overall_impression=raw,
+            raw_response=raw,
+            limitations=["Model response was not valid structured JSON; unstructured output requires review."],
+        )
 
 
 class LLMProvider(ABC):

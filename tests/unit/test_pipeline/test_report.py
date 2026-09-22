@@ -134,3 +134,27 @@ def test_report_step_restricts_permissions(tmp_path: Path):
     if sys.platform != "win32":
         mode = os.stat(result.report_path).st_mode & 0o777
         assert mode == 0o600
+
+
+def test_report_step_writes_preliminary_fhir_and_dicom_without_overwriting(tmp_path):
+    import pydicom
+
+    ctx = _make_ctx(tmp_path)
+    ctx.report_format = "fhir"
+    ReportStep().run(ctx)
+    first = Path(ctx.report_path)
+    fhir = json.loads(first.read_text(encoding="utf-8"))
+    assert fhir["resourceType"] == "DiagnosticReport"
+    assert fhir["status"] == "preliminary"
+    assert fhir["contained"][0]["valueString"] == ctx.findings[0].findings
+    ReportStep().run(ctx)
+    assert Path(ctx.report_path) != first
+    assert first.exists()
+
+    ctx.report_format = "dicom-sr"
+    ReportStep().run(ctx)
+    sr = pydicom.dcmread(ctx.report_path)
+    assert sr.Modality == "SR"
+    assert sr.CompletionFlag == "PARTIAL"
+    assert sr.VerificationFlag == "UNVERIFIED"
+    assert any(ctx.findings[0].findings in item.TextValue for item in sr.ContentSequence)

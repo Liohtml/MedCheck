@@ -10,3 +10,12 @@ tests/
 docs/
 *.md
 !README.md
+
+.medcheck/
+artifacts/
+output/
+data/
+scans/
+*.dcm
+*.dicom
+*.zip

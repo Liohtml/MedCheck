@@ -78,60 +78,82 @@ def _sort_key(ds: Any) -> float:
     return 0.0
 
 
-def _extract_pixel_array(ds: Any) -> np.ndarray[Any, np.dtype[Any]]:
-    """Extract the 2-D pixel array from a DICOM dataset.
-
-    Tries ``ds.pixel_array`` first (requires pydicom with correct transfer
-    syntax).  Falls back to reconstructing from raw ``PixelData`` bytes when
-    the standard path raises an exception (e.g. missing file meta in pure
-    in-memory ``Dataset`` objects used in tests).
-    """
+def _slice_normal(ds: Any) -> np.ndarray | None:
     try:
-        arr_f: np.ndarray[Any, np.dtype[Any]] = ds.pixel_array.astype(np.float32)
-        return arr_f
-    except Exception:
-        rows = int(ds.Rows)
-        cols = int(ds.Columns)
-        bits = int(getattr(ds, "BitsAllocated", 16))
-        dtype = np.uint16 if bits == 16 else np.uint8
-        raw = bytes(ds.PixelData)
-        arr = np.frombuffer(raw, dtype=dtype).reshape(rows, cols)
-        return arr.astype(np.float32)
+        orientation = np.asarray(ds.ImageOrientationPatient, dtype=float)
+        normal = np.cross(orientation[:3], orientation[3:])
+        length = np.linalg.norm(normal)
+        return normal / length if length > 0 and np.isfinite(normal).all() else None
+    except (AttributeError, TypeError, ValueError):
+        return None
+
+
+def _position(ds: Any, normal: np.ndarray) -> float | None:
+    try:
+        result = float(np.dot(np.asarray(ds.ImagePositionPatient, dtype=float), normal))
+        return result if np.isfinite(result) else None
+    except (AttributeError, TypeError, ValueError):
+        return None
+
+
+def _extract_pixel_array(ds: Any) -> np.ndarray[Any, np.dtype[Any]]:
+    """Decode with pydicom's transfer syntax handling; never guess raw encoding."""
+    from pydicom.pixels.processing import apply_modality_lut
+
+    array = np.asarray(apply_modality_lut(ds.pixel_array, ds), dtype=np.float32)
+    if array.ndim != 2 or int(getattr(ds, "SamplesPerPixel", 1)) != 1:
+        raise ValueError("only single-frame grayscale DICOM images are supported")
+    if not np.isfinite(array).all():
+        raise ValueError("pixel values are non-finite")
+    if getattr(ds, "PhotometricInterpretation", "") == "MONOCHROME1":
+        array = array.max() + array.min() - array
+    return array
 
 
 def _build_volume(series: DicomSeries) -> np.ndarray:
-    """Sort slices, extract pixel arrays, stack, and normalise to [0, 1].
-
-    Slices whose dimensions deviate from the series' dominant shape (mixed
-    matrix sizes, embedded localizers) are dropped with a warning instead of
-    letting ``np.stack`` fail; an empty series raises a descriptive error.
-    """
-    sorted_slices = sorted(series.slices, key=_sort_key)
-    if not sorted_slices:
+    """Build a normalized volume while retaining quality warnings and source mapping."""
+    if not series.slices:
         raise ValueError("series contains no slices")
-    arrays = [_extract_pixel_array(ds) for ds in sorted_slices]
-
-    shape_counts = Counter(arr.shape for arr in arrays)
-    if len(shape_counts) > 1:
-        dominant_shape, _count = shape_counts.most_common(1)[0]
-        kept = [arr for arr in arrays if arr.shape == dominant_shape]
-        dropped = len(arrays) - len(kept)
-        console.print(
-            f"[yellow]Series '{series.description}': dropped {dropped} slice(s) "
-            f"with deviating dimensions (kept {len(kept)} at {dominant_shape}).[/yellow]"
-        )
-        arrays = kept
-
-    volume = np.stack(arrays, axis=0)  # shape: (N, H, W)
-
-    v_min = volume.min()
-    v_max = volume.max()
-    if v_max > v_min:
-        volume = (volume - v_min) / (v_max - v_min)
-    else:
-        volume = np.zeros_like(volume)
-
-    return volume
+    warnings: list[str] = []
+    normal = _slice_normal(series.slices[0])
+    positions = [_position(ds, normal) for ds in series.slices] if normal is not None else []
+    normals = [_slice_normal(ds) for ds in series.slices]
+    orientation_ok = normal is not None and all(n is not None and np.allclose(n, normal, atol=1e-3) for n in normals)
+    if normal is not None and not orientation_ok:
+        raise ValueError("inconsistent image orientations; split the localizers from this series")
+    use_geometry = orientation_ok and all(pos is not None for pos in positions)
+    if not use_geometry:
+        warnings.append("Missing image geometry; slice ordering uses SliceLocation/InstanceNumber.")
+    ordered = sorted(
+        enumerate(series.slices),
+        key=lambda item: float(positions[item[0]] or 0) if use_geometry else _sort_key(item[1]),
+    )
+    decoded = [(index, ds, _extract_pixel_array(ds)) for index, ds in ordered]
+    counts = Counter(arr.shape for _, _, arr in decoded)
+    if len(counts) > 1:
+        dominant = counts.most_common(1)[0][0]
+        kept = [item for item in decoded if item[2].shape == dominant]
+        warnings.append(f"Dropped {len(decoded) - len(kept)} slice(s) with deviating dimensions.")
+        decoded = kept
+    if use_geometry and len(decoded) > 1:
+        spacing = np.diff([positions[index] for index, _, _ in decoded])
+        if np.any(spacing < 1e-4):
+            warnings.append("Duplicate slice positions detected; volume may contain repeated acquisitions.")
+        positive = spacing[spacing > 1e-4]
+        if len(positive) > 1 and not np.allclose(positive, np.median(positive), rtol=0.1, atol=0.1):
+            warnings.append("Irregular slice spacing or missing slices detected.")
+    series.metadata["quality_checks"] = warnings
+    series.metadata["slice_references"] = [
+        {
+            "original_index": index,
+            "sop_instance_uid": str(getattr(ds, "SOPInstanceUID", "")),
+            "instance_number": str(getattr(ds, "InstanceNumber", "")),
+        }
+        for index, ds, _ in decoded
+    ]
+    volume = np.stack([arr for _, _, arr in decoded], axis=0)
+    lo, hi = volume.min(), volume.max()
+    return (volume - lo) / (hi - lo) if hi > lo else np.zeros_like(volume)
 
 
 def _series_keys(series_list: list[DicomSeries]) -> list[str]:
@@ -170,12 +192,16 @@ class PreprocessStep(PipelineStep):
         for key, series in zip(keys, context.dicom_series, strict=True):
             try:
                 context.volumes[key] = _build_volume(series)
+                context.slice_references[key] = series.metadata["slice_references"]
+                context.quality_checks[key] = series.metadata["quality_checks"]
+                context.limitations.extend(f"Series '{key}': {warning}" for warning in context.quality_checks[key])
             except Exception as exc:
                 # One malformed series must not abort the whole study; surface
                 # the gap in the report's limitations instead.
                 message = f"Series '{key}' skipped during preprocessing: {exc}"
                 console.print(f"[yellow]{message}[/yellow]")
                 context.limitations.append(message)
+                context.quality_checks[key] = [message]
 
         # Detect anatomy from the first series description
         if context.dicom_series:
@@ -185,6 +211,14 @@ class PreprocessStep(PipelineStep):
         # Detect plane for every series (from the real description, keyed by
         # the same unique key as the volume)
         for key, series in zip(keys, context.dicom_series, strict=True):
-            context.detected_planes[key] = detect_plane(series.description)
+            normal = _slice_normal(series.slices[0]) if series.slices else None
+            context.detected_planes[key] = (
+                ("sagittal", "coronal", "axial")[int(np.argmax(np.abs(normal)))]
+                if normal is not None
+                else detect_plane(series.description)
+            )
+
+        if context.clinical_context and context.clinical_context.anatomy:
+            context.detected_anatomy = context.clinical_context.anatomy
 
         return context

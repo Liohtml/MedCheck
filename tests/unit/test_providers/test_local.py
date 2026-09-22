@@ -124,3 +124,76 @@ def test_scan_zip_accepts_normal_archive(tmp_path: Path):
         zf.write(dicom_dir / "slice1.dcm", "series/slice1.dcm")
     result = LocalProvider().fetch(str(zip_path), {})
     assert len(result) == 1
+
+
+def test_uid_grouping_keeps_identical_descriptions_separate(tmp_path):
+    study = generate_uid()
+    for index in range(3):
+        path = tmp_path / f"{index}.dcm"
+        _create_test_dicom(path, "identical", 1)
+        ds = pydicom.dcmread(path)
+        ds.StudyInstanceUID = study if index < 2 else generate_uid()
+        ds.SeriesInstanceUID = generate_uid()
+        ds.save_as(path)
+    result = LocalProvider().fetch(str(tmp_path), {})
+    assert len(result) == 3
+    assert len({s.metadata["study_instance_uid"] for s in result}) == 2
+
+
+def test_dicomdir_import_and_escape_rejection(tmp_path):
+    from unittest.mock import patch
+
+    import pytest
+
+    image_path = tmp_path / "IMAGE001"
+    _create_test_dicom(image_path)
+    directory = tmp_path / "DICOMDIR"
+    directory.touch()
+    record = pydicom.Dataset()
+    record.ReferencedFileID = ["IMAGE001"]
+    index = pydicom.Dataset()
+    index.DirectoryRecordSequence = [record]
+    original = pydicom.dcmread
+
+    def read(path, **kwargs):
+        return index if Path(path) == directory else original(path, **kwargs)
+
+    with patch("medcheck.providers.local.pydicom.dcmread", side_effect=read):
+        assert len(LocalProvider().fetch(str(directory), {})) == 1
+        record.ReferencedFileID = ["..", "SECRET"]
+        with pytest.raises(ValueError, match="Unsafe"):
+            LocalProvider().fetch(str(directory), {})
+
+
+def test_single_dicom_does_not_import_sibling_files(tmp_path):
+    first = tmp_path / "one.dcm"
+    _create_test_dicom(first, "one")
+    _create_test_dicom(tmp_path / "two.dcm", "two")
+    result = LocalProvider().fetch(str(first), {})
+    assert len(result) == 1
+    assert result[0].description == "one"
+
+
+def test_input_quota_applies_to_single_file_and_aggregate(tmp_path, monkeypatch):
+    import pytest
+
+    first, second = tmp_path / "one.dcm", tmp_path / "two.dcm"
+    _create_test_dicom(first)
+    _create_test_dicom(second)
+    monkeypatch.setenv("MEDCHECK_MAX_DICOM_BYTES", str(first.stat().st_size + 1))
+    assert LocalProvider().fetch(str(first), {})
+    with pytest.raises(ValueError, match="byte limit"):
+        LocalProvider().fetch(str(tmp_path), {})
+    monkeypatch.setenv("MEDCHECK_MAX_DICOM_BYTES", "1")
+    with pytest.raises(ValueError, match="byte limit"):
+        LocalProvider().fetch(str(first), {})
+
+
+def test_zip_uncompressed_quota_applied_before_extraction(tmp_path, monkeypatch):
+    import pytest
+
+    monkeypatch.setenv("MEDCHECK_MAX_DICOM_BYTES", "10")
+    archive = tmp_path / "large.zip"
+    _write_zip(archive, {"image.dcm": b"123456789012"})
+    with pytest.raises(ValueError, match="uncompressed size"):
+        LocalProvider().fetch(str(archive), {})

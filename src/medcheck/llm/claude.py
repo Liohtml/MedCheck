@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import importlib
 import os
 from typing import Any
 
@@ -27,7 +28,13 @@ class ClaudeProvider(LLMProvider):
         self.model = model or os.environ.get("MEDCHECK_CLAUDE_MODEL", "claude-opus-4-8")
 
     def check_available(self) -> bool:
-        return bool(os.environ.get("ANTHROPIC_API_KEY"))
+        if not os.environ.get("ANTHROPIC_API_KEY"):
+            return False
+        try:
+            importlib.import_module("anthropic")
+        except ImportError:
+            return False
+        return True
 
     def analyze_images(
         self,

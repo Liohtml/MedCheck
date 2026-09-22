@@ -1,5 +1,6 @@
 import numpy as np
-from pydicom.dataset import Dataset
+from pydicom.dataset import Dataset, FileMetaDataset
+from pydicom.uid import ExplicitVRLittleEndian
 
 from medcheck.core.context import DicomSeries, PipelineContext
 from medcheck.pipeline.preprocess import PreprocessStep, detect_anatomy, detect_plane
@@ -7,6 +8,8 @@ from medcheck.pipeline.preprocess import PreprocessStep, detect_anatomy, detect_
 
 def _make_slice(rows=64, cols=64, series_desc="pd_tse_fs_sag_3mm", instance_num=1, slice_loc=0.0):
     ds = Dataset()
+    ds.file_meta = FileMetaDataset()
+    ds.file_meta.TransferSyntaxUID = ExplicitVRLittleEndian
     ds.SeriesDescription = series_desc
     ds.InstanceNumber = instance_num
     ds.SliceLocation = slice_loc
@@ -182,3 +185,53 @@ def test_preprocess_empty_descriptions_keep_all_series():
     assert len(result.volumes) == 2
     assert "series-4" in result.volumes
     assert "series-2" in result.volumes
+
+
+def test_geometry_order_and_filtered_source_references():
+    slices = [_make_slice(rows=32 if i == 1 else 64, instance_num=i) for i in range(5)]
+    for index, ds in enumerate(slices):
+        ds.ImageOrientationPatient = [0, 1, 0, 0, 0, 1]  # sagittal normal along x
+        ds.ImagePositionPatient = [4 - index, 0, 0]
+    ctx = PreprocessStep().run(PipelineContext(dicom_series=[DicomSeries(description="axial", slices=slices)]))
+    assert ctx.detected_planes["axial"] == "sagittal"
+    assert [r["original_index"] for r in ctx.slice_references["axial"]] == [4, 3, 2, 0]
+    assert any("deviating dimensions" in note for note in ctx.quality_checks["axial"])
+    assert any("missing slices" in note for note in ctx.quality_checks["axial"])
+
+
+def test_missing_transfer_syntax_rejected_without_raw_guess():
+    ds = _make_slice()
+    del ds.file_meta.TransferSyntaxUID
+    ctx = PreprocessStep().run(PipelineContext(dicom_series=[DicomSeries(description="bad", slices=[ds])]))
+    assert not ctx.volumes
+    assert "skipped" in ctx.limitations[0]
+
+
+def test_signed_pixels_rescale_and_monochrome_one():
+    from medcheck.pipeline.preprocess import _extract_pixel_array
+
+    ds = _make_slice(rows=2, cols=2)
+    ds.PixelRepresentation = 1
+    ds.PixelData = np.array([[-2, -1], [0, 1]], dtype=np.int16).tobytes()
+    ds.RescaleSlope = 2
+    ds.RescaleIntercept = -10
+    assert _extract_pixel_array(ds).tolist() == [[-14, -12], [-10, -8]]
+    ds.PhotometricInterpretation = "MONOCHROME1"
+    assert _extract_pixel_array(ds).tolist() == [[-8, -10], [-12, -14]]
+
+
+def test_duplicate_positions_warn_and_clinical_anatomy_wins():
+    from medcheck.core.context import ClinicalContext
+
+    slices = [_make_slice(), _make_slice()]
+    for ds in slices:
+        ds.ImageOrientationPatient = [1, 0, 0, 0, 1, 0]
+        ds.ImagePositionPatient = [0, 0, 1]
+    ctx = PreprocessStep().run(
+        PipelineContext(
+            dicom_series=[DicomSeries(description="knee", slices=slices)],
+            clinical_context=ClinicalContext(anatomy="ankle"),
+        )
+    )
+    assert ctx.detected_anatomy == "ankle"
+    assert any("Duplicate" in warning for warning in ctx.limitations)

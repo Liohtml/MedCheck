@@ -23,7 +23,7 @@ class IngestStep(PipelineStep):
         registry.register(LocalProvider)
         registry.register(EasyRadiologyProvider)
 
-        _console.print(f"[bold cyan]IngestStep[/] Resolving provider for source: {context.source!r}")
+        _console.print("[bold cyan]IngestStep[/] Resolving data provider")
 
         if context.provider_name and context.provider_name != "local":
             provider = registry.get(context.provider_name)
@@ -42,6 +42,16 @@ class IngestStep(PipelineStep):
             )
 
         series_list = provider.fetch(context.source, context.credentials)
+        study_ids = {str(s.metadata.get("study_instance_uid", "")) for s in series_list}
+        if context.study_instance_uid:
+            series_list = [
+                s for s in series_list if s.metadata.get("study_instance_uid", "") == context.study_instance_uid
+            ]
+        elif len(study_ids) > 1:
+            raise ValueError("Multiple studies found. Select one study using --study-uid before analysis.")
+        if not series_list:
+            raise ValueError("No readable DICOM images found for the selected study.")
+        context.study_instance_uid = str(series_list[0].metadata.get("study_instance_uid", ""))
         context.dicom_series = series_list
 
         _console.print(f"[bold cyan]IngestStep[/] Loaded {len(series_list)} series")

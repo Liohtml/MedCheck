@@ -30,6 +30,11 @@ def _env_int(name: str, default: int) -> int:
 
 @dataclass
 class Settings:
+    data_root: str = field(default_factory=lambda: os.environ.get("MEDCHECK_DATA_ROOT", "./scans"))
+    state_dir: str = field(default_factory=lambda: os.environ.get("MEDCHECK_STATE_DIR", "./.medcheck"))
+    max_upload_bytes: int = field(default_factory=lambda: _env_int("MEDCHECK_MAX_UPLOAD_BYTES", 512 * 1024 * 1024))
+    max_jobs: int = field(default_factory=lambda: _env_int("MEDCHECK_MAX_JOBS", 20))
+    job_workers: int = field(default_factory=lambda: _env_int("MEDCHECK_JOB_WORKERS", 1))
     # Bind to localhost by default; operators must opt into 0.0.0.0 explicitly
     # via MEDCHECK_HOST for network deployments (this app handles patient PHI).
     host: str = field(default_factory=lambda: os.environ.get("MEDCHECK_HOST", "127.0.0.1"))

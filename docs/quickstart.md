@@ -1,70 +1,77 @@
 # Quick Start
 
-## Docker (recommended)
+## Install the checkout
 
-### Lite image (~500 MB — cloud APIs only)
+```bash
+git clone https://github.com/Liohtml/MedCheck.git
+cd MedCheck
+uv sync
+uv run medcheck serve
+```
+
+Open http://localhost:8080. Upload a DICOM file or ZIP, inspect available studies,
+select a study and start local analysis. Follow progress, inspect slices and
+download a report. Local statistics do not generate diagnostic findings and need
+no cloud account. The web application defaults to metadata de-identification.
+
+## Docker
 
 ```bash
 docker build --target lite -t medcheck:lite .
-docker run -p 8080:8080 --env-file .env medcheck:lite
+docker run --rm -p 127.0.0.1:8080:8080 \
+  -v medcheck-state:/app/.medcheck medcheck:lite
 ```
 
-Or with Docker Compose:
+To read server-side folders, additionally mount a source directory and configure
+the allowed root:
 
 ```bash
-docker compose up
+docker run --rm -p 127.0.0.1:8080:8080 \
+  -v "$PWD/scans:/data/scans:ro" \
+  -v medcheck-state:/app/.medcheck \
+  -e MEDCHECK_DATA_ROOT=/data/scans medcheck:lite
 ```
 
-### Full image (~10 GB — includes local ML models)
+The lite target includes cloud SDKs and local image statistics. The full target
+adds PyTorch/torchvision for feature extraction; neither downloads or bundles a
+vision language model. State storage contains sensitive data. See
+[Workbench](workbench.md) for retention and deployment settings.
+
+## CLI
 
 ```bash
-docker build --target full -t medcheck:full .
-docker run -p 8080:8080 --env-file .env medcheck:full
+# Local DICOM file, folder, ZIP or DICOMDIR:
+uv run medcheck analyze ./scans \
+  --steps ingest,preprocess,ml_analysis,report --deidentify --report json
+
+# Interactive input:
+uv run medcheck analyze ./scans --interactive
 ```
 
----
+Use `--study-uid` when the source contains multiple studies. Reports are written
+to `./output/` unless `--output` is specified.
 
-## pip / uv install
+For cloud vision, install the relevant SDK and set its API key in the environment:
 
 ```bash
-pip install medcheck
-# or
-uv add medcheck
+uv sync --extra claude
+export ANTHROPIC_API_KEY=your_key
+uv run medcheck analyze ./scans --model claude \
+  --deidentify --allow-cloud-llm --pixels-reviewed --report pdf
 ```
 
----
+Only confirm `--pixels-reviewed` after inspecting the images and text for
+identifiers. De-identification and optional OCR cannot guarantee anonymous input.
+For another provider use `--extra openai` or `--extra gemini`; `--extra cloud`
+installs all three. See [Models](models.md) for a user-managed local vision server.
 
-## CLI examples
+## Evaluate saved reports
 
-### Analyze a local DICOM/NIfTI file
+Prepare independently labelled reference cases and run:
 
 ```bash
-medcheck analyze path/to/knee.dcm --anatomy knee
+uv run medcheck evaluate manifest.json --output evaluation.json
 ```
 
-### Analyze via a PACS/portal URL
-
-```bash
-medcheck analyze https://portal.example.com/study/12345 --anatomy shoulder
-```
-
-### Interactive mode (prompt-driven)
-
-```bash
-medcheck interactive
-```
-
----
-
-## Web UI (preview)
-
-Once the server is running (`medcheck serve` or `docker compose up`), open:
-
-```
-http://localhost:8080
-```
-
-> **Note:** the web wizard is a preview. Running an analysis from the browser is
-> not yet available — the Analyze step returns `501 Not Implemented` until
-> [#157](https://github.com/Liohtml/MedCheck/issues/157) lands. Use the CLI
-> (`medcheck analyze SOURCE`, see above) to run analyses today.
+See [Evaluation](evaluation.md) for manifest format, baseline comparisons and
+limitations. These metrics measure label agreement, not clinical accuracy.

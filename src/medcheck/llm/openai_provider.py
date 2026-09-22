@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import importlib
 import os
 from typing import Any
 
@@ -26,7 +27,13 @@ class OpenAIProvider(LLMProvider):
         self.model = model or os.environ.get("MEDCHECK_OPENAI_MODEL", "gpt-5.5")
 
     def check_available(self) -> bool:
-        return bool(os.environ.get("OPENAI_API_KEY"))
+        if not os.environ.get("OPENAI_API_KEY"):
+            return False
+        try:
+            importlib.import_module("openai")
+        except ImportError:
+            return False
+        return True
 
     def analyze_images(
         self,

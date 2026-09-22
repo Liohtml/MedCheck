@@ -119,3 +119,107 @@ def test_download_models_caches_weights():
     assert result.exit_code == 0
     build.assert_called_once()
     assert "cached" in result.output
+
+
+def test_analyze_study_privacy_reference_and_export_flags(monkeypatch, tmp_path):
+    reference = tmp_path / "reference.txt"
+    reference.write_text("ACL unauffällig — Referenzbefund", encoding="utf-8")
+    captured = {}
+
+    def run_pipeline(ctx, workflow, steps):
+        captured.update(ctx=ctx, steps=steps)
+        return ctx
+
+    with patch("medcheck.main._run_pipeline", side_effect=run_pipeline):
+        result = runner.invoke(
+            app,
+            [
+                "analyze",
+                str(tmp_path),
+                "--study-uid",
+                "1.2.3.4",
+                "--pixels-reviewed",
+                "--deidentify",
+                "--allow-cloud-llm",
+                "--model",
+                "claude",
+                "--official-report",
+                str(reference),
+                "--report",
+                "fhir",
+                "--ocr-redact",
+                "--output",
+                str(tmp_path / "output"),
+            ],
+        )
+    assert result.exit_code == 0, result.output
+    ctx = captured["ctx"]
+    assert ctx.study_instance_uid == "1.2.3.4"
+    assert ctx.pixels_reviewed and ctx.allow_external_llm and ctx.deidentify
+    assert ctx.official_report == "ACL unauffällig — Referenzbefund"
+    assert ctx.report_format == "fhir"
+    assert ctx.analysis_provenance["ocr_requested"] is True
+    assert captured["steps"].split(",") == [
+        "ingest",
+        "preprocess",
+        "ml_analysis",
+        "vision_analysis",
+        "reconcile",
+        "report",
+    ]
+
+
+def test_analyze_dicom_sr_and_default_pixel_review_not_assumed(monkeypatch, tmp_path):
+    result, ctx = _capture_analyze_context(
+        monkeypatch,
+        [
+            "analyze",
+            str(tmp_path),
+            "--report",
+            "dicom-sr",
+            "--output",
+            str(tmp_path / "output"),
+        ],
+    )
+    assert result.exit_code == 0
+    assert ctx.report_format == "dicom-sr"
+    assert ctx.pixels_reviewed is False
+    assert ctx.analysis_provenance["ocr_requested"] is False
+
+
+def test_evaluate_cli_writes_artifact_and_fails_on_regression(tmp_path):
+    import json
+
+    report = tmp_path / "report.json"
+    report.write_text(json.dumps({"findings": [{"name": "ACL", "status": "normal"}]}))
+    manifest = tmp_path / "manifest.json"
+    manifest.write_text(
+        json.dumps(
+            [
+                {
+                    "id": "case-1",
+                    "report": "report.json",
+                    "expected": [{"name": "ACL", "status": "normal"}],
+                }
+            ]
+        )
+    )
+    baseline = tmp_path / "baseline.json"
+    result = runner.invoke(app, ["evaluate", str(manifest), "--output", str(baseline)])
+    assert result.exit_code == 0, result.output
+    assert json.loads(baseline.read_text())["aggregate"]["true_positives"] == 1
+    report.write_text(json.dumps({"findings": []}))
+    output = tmp_path / "regression.json"
+    result = runner.invoke(app, ["evaluate", str(manifest), "--baseline", str(baseline), "--output", str(output)])
+    assert result.exit_code == 1
+    assert json.loads(output.read_text())["passed"] is False
+
+
+def test_evaluate_cli_invalid_manifest_does_not_create_output(tmp_path):
+    manifest = tmp_path / "invalid.json"
+    manifest.write_text("{}")
+    output = tmp_path / "out.json"
+    result = runner.invoke(app, ["evaluate", str(manifest), "--output", str(output)])
+    assert result.exit_code == 2
+    assert "Manifest must be a JSON array" in result.output
+    assert not output.exists()

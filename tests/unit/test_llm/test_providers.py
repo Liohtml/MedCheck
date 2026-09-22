@@ -66,21 +66,30 @@ def _install_fake_openai(monkeypatch, captured):
 
 
 def _install_fake_gemini(monkeypatch, captured):
-    genai = types.ModuleType("google.generativeai")
-    genai.configure = lambda **kwargs: None
+    genai = types.ModuleType("google.genai")
 
-    class _Model:
-        def __init__(self, name):
-            captured["model"] = name
+    class _Client:
+        def __init__(self, **kwargs):
+            captured.update(kwargs)
+            self.models = self
 
-        def generate_content(self, parts, **kwargs):
+        def generate_content(self, **kwargs):
             captured.update(kwargs)
             return types.SimpleNamespace(text=_JSON)
 
-    genai.GenerativeModel = _Model
-    google_pkg = sys.modules.get("google") or types.ModuleType("google")
+        def close(self):
+            captured["closed"] = True
+
+    genai.Client = _Client
+    genai.types = types.SimpleNamespace(
+        HttpOptions=lambda **kw: types.SimpleNamespace(**kw),
+        HttpRetryOptions=lambda **kw: types.SimpleNamespace(**kw),
+        Part=types.SimpleNamespace(from_bytes=lambda **kw: kw),
+    )
+    google_pkg = types.ModuleType("google")
+    google_pkg.genai = genai
     monkeypatch.setitem(sys.modules, "google", google_pkg)
-    monkeypatch.setitem(sys.modules, "google.generativeai", genai)
+    monkeypatch.setitem(sys.modules, "google.genai", genai)
 
 
 def test_claude_analyze_images(monkeypatch):
@@ -127,8 +136,10 @@ def test_gemini_analyze_images(monkeypatch):
 
     result = GeminiProvider().analyze_images(_IMAGES, "prompt", None)
     assert result.overall_impression == "ok"
-    # Timeout passed through request_options.
-    assert captured["request_options"]["timeout"] > 0
+    assert captured["http_options"].timeout > 0
+    assert captured["http_options"].retry_options.attempts == 1
+    assert captured["closed"] is True
+    assert captured["contents"][0] == {"data": b"\x89PNG", "mime_type": "image/png"}
 
 
 def test_gemini_missing_key(monkeypatch):
@@ -136,3 +147,21 @@ def test_gemini_missing_key(monkeypatch):
     _install_fake_gemini(monkeypatch, {})
     with pytest.raises(RuntimeError, match="GOOGLE_API_KEY"):
         GeminiProvider().analyze_images(_IMAGES, "prompt", None)
+
+
+@pytest.mark.parametrize(
+    "provider,key,module",
+    [
+        (ClaudeProvider, "ANTHROPIC_API_KEY", "anthropic"),
+        (OpenAIProvider, "OPENAI_API_KEY", "openai"),
+        (GeminiProvider, "GOOGLE_API_KEY", "google.genai"),
+    ],
+)
+def test_availability_requires_sdk_and_key(monkeypatch, provider, key, module):
+    monkeypatch.setenv(key, "key")
+    monkeypatch.setitem(sys.modules, module, None)
+    assert not provider().check_available()
+    monkeypatch.setitem(sys.modules, module, types.ModuleType(module))
+    assert provider().check_available()
+    monkeypatch.delenv(key)
+    assert not provider().check_available()

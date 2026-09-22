@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
 
 import typer
 from rich.console import Console
@@ -20,7 +20,7 @@ console = Console()
 # Accepted report formats and languages. Kept in sync with ReportStep (report.py)
 # and the i18n catalogs (medcheck/i18n/*.json) so an invalid CLI value fails fast
 # instead of silently falling through to the JSON branch.
-_REPORT_FORMATS = ("pdf", "html", "json")
+_REPORT_FORMATS = ("pdf", "html", "json", "fhir", "dicom-sr")
 _REPORT_LANGUAGES = ("en", "de", "fr", "es")
 
 
@@ -59,6 +59,8 @@ def _build_registry() -> Any:
     from medcheck.pipeline.ingest import IngestStep
     from medcheck.pipeline.ml_analysis import MLAnalysisStep
     from medcheck.pipeline.preprocess import PreprocessStep
+    from medcheck.pipeline.privacy import DeidentifyStep
+    from medcheck.pipeline.reconcile import ReconcileStep
     from medcheck.pipeline.report import ReportStep
     from medcheck.pipeline.vision_analysis import VisionAnalysisStep
 
@@ -68,6 +70,8 @@ def _build_registry() -> Any:
     registry.register("ml_analysis", MLAnalysisStep)
     registry.register("vision_analysis", VisionAnalysisStep)
     registry.register("report", ReportStep)
+    registry.register("deidentify", DeidentifyStep)
+    registry.register("reconcile", ReconcileStep)
     return registry
 
 
@@ -102,7 +106,7 @@ def _print_summary(ctx: Any) -> None:
 
 
 @app.command()
-def analyze(
+def analyze(  # noqa: C901 - CLI option assembly
     source: str = typer.Argument(..., help="DICOM folder, ZIP file, or portal URL"),
     provider: str | None = typer.Option(None, "--provider", "-p", help="Data provider (auto-detected if omitted)"),
     code: str | None = typer.Option(None, "--code", help="Access code (for portal providers)"),
@@ -131,6 +135,19 @@ def analyze(
         False,
         "--deidentify",
         help="Replace patient name, ID and birth date with a pseudonym in generated reports",
+    ),
+    study_uid: str = typer.Option("", "--study-uid", help="Select one DICOM StudyInstanceUID"),
+    pixels_reviewed: bool = typer.Option(
+        False, "--pixels-reviewed", help="Confirm pixels and text were reviewed for identifiers before cloud transfer"
+    ),
+    official_report: Annotated[
+        Path | None,
+        typer.Option(
+            "--official-report", exists=True, dir_okay=False, help="UTF-8 reference report for local text comparison"
+        ),
+    ] = None,
+    ocr_redact: bool = typer.Option(
+        False, "--ocr-redact", help="Locally mask OCR-detected text; requires privacy extra and Tesseract"
     ),
 ) -> None:
     """Analyze medical images from DICOM files or radiology portals."""
@@ -161,6 +178,10 @@ def analyze(
     # Consent to external LLM transmission via flag or MEDCHECK_ALLOW_EXTERNAL_LLM env.
     ctx.allow_external_llm = allow_cloud_llm or settings.allow_external_llm
     ctx.deidentify = deidentify
+    ctx.study_instance_uid = study_uid
+    ctx.pixels_reviewed = pixels_reviewed
+    ctx.official_report = official_report.read_text(encoding="utf-8") if official_report else ""
+    ctx.analysis_provenance["ocr_requested"] = ocr_redact
 
     # Clinical context
     if symptoms or trauma or diagnosis:
@@ -194,6 +215,13 @@ def analyze(
     console.print(f"  Language: {lang}")
     console.print(f"  Output: {output}")
 
+    if not steps and not workflow:
+        selected = ["ingest", "preprocess", "ml_analysis"]
+        if model or allow_cloud_llm:
+            selected.append("vision_analysis")
+        if official_report:
+            selected.append("reconcile")
+        steps = ",".join([*selected, "report"])
     ctx = _run_pipeline(ctx, workflow, steps)
     _print_summary(ctx)
 
@@ -310,3 +338,24 @@ def download_models() -> None:
         console.print(f"[red]Download failed:[/red] {exc}")
         raise typer.Exit(code=1) from None
     console.print("[green]Done — model weights are cached; local ML analysis now runs fully offline.[/green]")
+
+
+@app.command()
+def evaluate(
+    manifest: Annotated[Path, typer.Argument(exists=True, dir_okay=False)],
+    output: Annotated[Path, typer.Option("--output")] = Path("evaluation.json"),
+    baseline: Annotated[Path | None, typer.Option("--baseline", exists=True, dir_okay=False)] = None,
+) -> None:
+    """Compare report labels with an explicit reference dataset; detect regressions."""
+    import json
+
+    from medcheck.evaluation import evaluate_manifest
+
+    try:
+        result = evaluate_manifest(manifest, baseline=baseline)
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+    output.write_text(json.dumps(result, indent=2), encoding="utf-8")
+    console.print(f"Evaluation written to {output}")
+    if not result["passed"]:
+        raise typer.Exit(1)

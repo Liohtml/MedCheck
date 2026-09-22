@@ -1,74 +1,76 @@
-# Supported LLM Models
+# LLM providers and local vision
 
-## Model table
+MedCheck supports Claude, OpenAI, Gemini and a user-managed local vision server.
+Model output and confidence scores are not clinically validated. Provider or model
+selection does not establish diagnostic accuracy.
 
-| Model | Provider | Context window | Vision | Approx. cost (per 1 M tokens) | Notes |
-|-------|----------|---------------|--------|-------------------------------|-------|
-| `claude-opus-4-8` | Anthropic | 200 K | Yes | $15 in / $75 out | Best accuracy; recommended for complex cases |
-| `gpt-5-5` | OpenAI | 128 K | Yes | $10 in / $30 out | Strong general performance |
-| `gemini-3-5-flash` | Google | 1 M | Yes | $0.35 in / $1.05 out | Fastest; good for high-volume screening |
-| `local` | On-device | varies | Yes | Free (hardware cost) | Requires `full` Docker image; no data leaves your network |
+## Installation
 
-> Pricing is approximate and subject to change. Check provider pricing pages for current rates.
+Install only the SDKs you need:
 
----
+```bash
+uv sync --extra claude
+uv sync --extra openai
+uv sync --extra gemini
+# Or install all cloud SDKs:
+uv sync --extra cloud
+```
+
+Both Docker targets install the cloud SDK bundle. `full` additionally installs
+PyTorch/torchvision for image feature extraction; it does **not** bundle a vision
+language model. Cloud availability requires both an installed SDK and an API key.
+The availability check does not validate credentials with the remote service.
+Gemini uses the maintained [Google Gen AI SDK](https://googleapis.github.io/python-genai/).
 
 ## Configuration
 
-Set the default model in `.env` or environment variables:
+| Provider selection | API key | Model override |
+|---|---|---|
+| `claude` | `ANTHROPIC_API_KEY` | `MEDCHECK_CLAUDE_MODEL` |
+| `openai` | `OPENAI_API_KEY` | `MEDCHECK_OPENAI_MODEL` |
+| `gemini` | `GOOGLE_API_KEY` | `MEDCHECK_GEMINI_MODEL` |
+| `local` | None | `MEDCHECK_LOCAL_MODEL` (required) |
+
+Set `MEDCHECK_LLM_PROVIDER` to the desired provider name. Model identifiers are
+provider-specific and should be checked against the account's available models.
+Timeout is controlled with `MEDCHECK_LLM_TIMEOUT` (seconds, default 120); transient
+request retries with `MEDCHECK_LLM_RETRIES` (default 2). MedCheck does not silently
+switch from one cloud provider to another.
+
+## Local vision setup
+
+Run an OpenAI-compatible server with a vision-capable model you have installed
+and selected yourself. Configure its loopback IP address and exact model ID:
 
 ```bash
-MEDCHECK_DEFAULT_MODEL=claude-opus-4-8
+export MEDCHECK_LLM_PROVIDER=local
+export MEDCHECK_LOCAL_URL=http://127.0.0.1:11434/v1
+export MEDCHECK_LOCAL_MODEL=your-installed-vision-model
 ```
 
-Or per-request via CLI:
+The server must expose `GET /v1/models` and `POST /v1/chat/completions`, supporting
+base64 PNG `image_url` message parts. Availability verifies the configured model
+appears in the server's models list; that listing cannot prove image support.
+An incompatible model will fail at inference. No models are downloaded or servers
+started by MedCheck. Local vision works without the `local-models` extra, which is
+only needed for the separate PyTorch feature extractor.
 
-```bash
-medcheck analyze image.dcm --anatomy knee --model gemini-3-5-flash
-```
+Only literal loopback IP addresses are accepted (`127.0.0.1` or `::1`); hostnames,
+remote endpoints, credentials in URLs, redirects and environment proxies are
+rejected or disabled. The local server remains user-managed: configure it for
+local inference, since MedCheck cannot establish whether it relays data elsewhere.
+Inside Docker, loopback means the container itself. Run the model server in the
+same network namespace; a remote host or `host.docker.internal` is deliberately
+not accepted as a local provider.
 
-Or in a workflow YAML (see [workflows.md](workflows.md)):
+## Privacy tools and cost
 
-```yaml
-- id: analyze
-  uses: analyze
-  with:
-    model: gpt-5-5
-```
+`uv sync --extra privacy` installs the optional `pytesseract` Python wrapper.
+OCR also needs the separately installed Tesseract executable; installing the
+extra does not install it. Review de-identification and the selected images
+before permitting cloud transmission.
 
-### Provider API keys
-
-| Provider | Environment variable |
-|----------|---------------------|
-| Anthropic | `ANTHROPIC_API_KEY` |
-| OpenAI | `OPENAI_API_KEY` |
-| Google | `GOOGLE_API_KEY` |
-| Local | _(none required)_ |
-
----
-
-## Local model setup
-
-The `full` Docker image bundles a quantized vision-language model suitable for offline inference.
-
-```bash
-docker build --target full -t medcheck:full .
-docker run -p 8080:8080 -e MEDCHECK_DEFAULT_MODEL=local medcheck:full
-```
-
-To run local inference on GPU, pass `--gpus all` to `docker run` and ensure the NVIDIA Container Toolkit is installed.
-
----
-
-## Pricing comparison
-
-For a typical batch of 100 knee MRI studies (~500 images, ~2 M tokens total):
-
-| Model | Estimated cost |
-|-------|---------------|
-| `claude-opus-4-8` | ~$120 |
-| `gpt-5-5` | ~$60 |
-| `gemini-3-5-flash` | ~$2 |
-| `local` | $0 (hardware only) |
-
-Gemini Flash is the most cost-effective option for high-volume screening workflows. Claude Opus is recommended when diagnostic accuracy is the top priority.
+Prices vary by selected model, image processing and token usage. Consult the
+provider's published pricing and your account usage. Static per-study prices or
+accuracy rankings are not supplied because they would imply precision that the
+project has not measured.

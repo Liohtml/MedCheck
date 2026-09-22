@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import time
+from datetime import datetime, timezone
 from typing import Any
 
 import yaml
@@ -58,16 +60,40 @@ class WorkflowEngine:
             KeyError: If a step name is not found in the registry.
         """
         step_configs = step_configs or {}
+        from medcheck import __version__
+
+        context.analysis_provenance.setdefault("app_version", __version__)
+        context.analysis_provenance.setdefault("started_at", datetime.now(timezone.utc).isoformat())
 
         for name in steps:
+            if (
+                name in {"preprocess", "report"}
+                and context.deidentify
+                and "deidentification" not in context.analysis_provenance
+            ):
+                from medcheck.pipeline.privacy import DeidentifyStep
+
+                context = DeidentifyStep().run(context)
             step_class = self.registry.get(name)  # raises KeyError if unknown
             step_instance = step_class()
             console.print(f"[bold blue]▶ Running step:[/bold blue] {name}")
             if not step_instance.validate(context):
                 console.print(f"[yellow]Skipping {name}: prerequisites not met[/yellow]")
+                context.limitations.append(f"Step '{name}' was not run: prerequisites not met.")
                 continue
-            context.step_config = step_configs.get(name, {})
+            context.step_config = dict(step_configs.get(name, {}))
+            started = time.monotonic()
             context = step_instance.run(context)
+            context.analysis_provenance.setdefault("steps", []).append(
+                {"name": name, "seconds": time.monotonic() - started}
+            )
+            if name == "preprocess":
+                from medcheck.pipeline.privacy import apply_pixel_redactions
+
+                context.step_config["ocr"] = bool(
+                    context.step_config.get("ocr") or context.analysis_provenance.get("ocr_requested")
+                )
+                apply_pixel_redactions(context)
             console.print(f"[bold green]✔ Completed step:[/bold green] {name}")
 
         return context

@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Working browser upload/study/analysis workflow, bounded jobs, progress, cancellation,
+  durable reports and slice viewer, authenticated downloads and explicit cleanup.
+- Finding image references, review edits/audit trail, local reference-report comparison,
+  preliminary FHIR R4 and DICOM Basic Text SR exports, regression evaluation CLI.
+- Conservative metadata de-identification, explicit pixel-review gate, optional local
+  OCR/manual masks; known-identifier free-text cleanup without anonymity guarantees.
+- DICOMDIR/single-image imports, UID study selection, geometry and quality checks.
+- Configured loopback vision server and installable cloud/per-provider SDK extras.
+- Browser user-journey tests across desktop/mobile, four UI locales and failure states.
+
+### Fixed
+- Explicitly close viewer memory maps before deletion/shutdown, copy viewer slices
+  under the store lock, and retain failed deletions for retry instead of reporting
+  success while files remain on Windows.
+- Series collisions, slice ordering/decoding, ResNet evaluation mode/batching, signal
+  metric semantics, unfair image allocation and overwritten processing warnings.
+- Missing cloud SDKs; Gemini now uses google-genai. Docker preserves installed extras.
+- Report filename collisions and PDF text escaping/wrapping; confidence is explicitly
+  uncalibrated and reviewed findings retain their original audit context.
+
+### Changed
+- Docker dependency automation, leaner CI install checks, CodeQL 4.38.0 pins.
+- Browser defaults to statistics without model downloads; cloud requires both consent
+  and pixel review. Unsupported multiframe/color data is reported instead of guessed.
+- Research scope, model limitations, storage retention and costs documented explicitly.
+
 ## [0.3.0] - 2026-07-02
 
 ### Added

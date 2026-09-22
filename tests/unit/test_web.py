@@ -1,3 +1,4 @@
+import pytest
 from fastapi.testclient import TestClient
 
 from medcheck.core.config import Settings
@@ -20,16 +21,22 @@ def test_app_health():
     assert resp.json()["status"] == "ok"
 
 
+@pytest.fixture(autouse=True)
+def isolated_store(tmp_path, monkeypatch):
+    monkeypatch.setenv("MEDCHECK_STATE_DIR", str(tmp_path / "state"))
+    monkeypatch.setenv("MEDCHECK_DATA_ROOT", str(tmp_path / "data"))
+
+
 _VALID_BODY = {"source": "/data/scans"}
 
 
 def test_analyze_open_when_no_api_key_configured():
     # Back-compat: no MEDCHECK_API_KEY -> endpoint stays open (localhost default).
-    # The pipeline is not wired up yet, so it must report 501 (not a 200 "success").
+    # Auth passes and the out-of-root source receives an actionable input error.
     client = TestClient(create_app(Settings(api_key=None)))
     resp = client.post("/api/analyze", json=_VALID_BODY)
-    assert resp.status_code == 501
-    assert "not implemented" in resp.json()["detail"].lower()
+    assert resp.status_code == 422
+    assert "MEDCHECK_DATA_ROOT" in resp.json()["detail"]
 
 
 def test_analyze_requires_key_when_configured():
@@ -38,9 +45,9 @@ def test_analyze_requires_key_when_configured():
     assert client.post("/api/analyze", json=_VALID_BODY).status_code == 401
     # Wrong key.
     assert client.post("/api/analyze", json=_VALID_BODY, headers={"X-API-Key": "nope"}).status_code == 401
-    # Correct key -> auth passes, endpoint reports the stub as 501 (not yet implemented).
+    # Correct key passes auth and reaches source validation.
     ok = client.post("/api/analyze", json=_VALID_BODY, headers={"X-API-Key": "s3cret"})
-    assert ok.status_code == 501
+    assert ok.status_code == 422
 
 
 def test_analyze_validates_request_body():
@@ -55,11 +62,12 @@ def test_analyze_validates_request_body():
 
 def test_analyze_accepts_all_supported_languages():
     # Web schema must accept the same locales the CLI and i18n catalogs support;
-    # a valid fr/es body should reach the (501) stub, not be rejected with 422.
+    # Valid fr/es bodies reach source validation rather than schema rejection.
     client = TestClient(create_app(Settings(api_key=None)))
     for lang in ("en", "de", "fr", "es"):
         resp = client.post("/api/analyze", json={"source": "x", "language": lang})
-        assert resp.status_code == 501, lang
+        assert resp.status_code == 422, lang
+        assert isinstance(resp.json()["detail"], str), lang
 
 
 def test_health_open_even_with_api_key():
@@ -196,7 +204,7 @@ def test_analyze_allows_same_origin_post():
         json=_VALID_BODY,
         headers={"Origin": "http://testserver"},
     )
-    assert resp.status_code == 501  # passes CSRF check, hits the stub
+    assert resp.status_code == 422  # passes CSRF check, reaches source validation
 
 
 def test_analyze_rejects_null_origin():
@@ -212,7 +220,7 @@ def test_analyze_rate_limited(monkeypatch):
     monkeypatch.setenv("MEDCHECK_RATE_LIMIT", "3")
     client = TestClient(create_app(Settings(api_key=None)))
     statuses = [client.post("/api/analyze", json=_VALID_BODY).status_code for _ in range(5)]
-    assert statuses[:3] == [501, 501, 501]
+    assert statuses[:3] == [422, 422, 422]
     assert statuses[3] == 429
     assert statuses[4] == 429
 
@@ -229,7 +237,7 @@ def test_rate_limit_ignores_forwarded_header_by_default(monkeypatch):
         client.post("/api/analyze", json=_VALID_BODY, headers={"X-Forwarded-For": f"10.0.0.{i}"}).status_code
         for i in range(4)
     ]
-    assert statuses == [501, 501, 429, 429]
+    assert statuses == [422, 422, 429, 429]
 
 
 def test_rate_limit_keys_on_forwarded_hop_when_proxy_trusted(monkeypatch):
@@ -239,21 +247,21 @@ def test_rate_limit_keys_on_forwarded_hop_when_proxy_trusted(monkeypatch):
     client = TestClient(create_app(Settings(api_key=None, trust_proxy_headers=True)))
     for i in range(4):
         resp = client.post("/api/analyze", json=_VALID_BODY, headers={"X-Forwarded-For": f"10.0.0.{i}, 172.16.0.1"})
-        assert resp.status_code == 501  # each client has its own bucket
+        assert resp.status_code == 422  # each client has its own bucket
 
     # ...while one client hammering does get limited.
     statuses = [
         client.post("/api/analyze", json=_VALID_BODY, headers={"X-Forwarded-For": "10.0.0.99"}).status_code
         for _ in range(3)
     ]
-    assert statuses == [501, 501, 429]
+    assert statuses == [422, 422, 429]
 
 
 def test_rate_limit_trusted_proxy_missing_header_falls_back_to_socket_ip(monkeypatch):
     monkeypatch.setenv("MEDCHECK_RATE_LIMIT", "2")
     client = TestClient(create_app(Settings(api_key=None, trust_proxy_headers=True)))
     statuses = [client.post("/api/analyze", json=_VALID_BODY).status_code for _ in range(3)]
-    assert statuses == [501, 501, 429]
+    assert statuses == [422, 422, 429]
 
 
 # --- Per-request cloud LLM consent (issue #63) ---
@@ -262,4 +270,4 @@ def test_rate_limit_trusted_proxy_missing_header_falls_back_to_socket_ip(monkeyp
 def test_analyze_accepts_allow_cloud_llm_field():
     client = TestClient(create_app(Settings(api_key=None)))
     resp = client.post("/api/analyze", json={"source": "x", "allow_cloud_llm": True})
-    assert resp.status_code == 501  # field is accepted by the schema
+    assert resp.status_code == 422  # field is accepted by the schema

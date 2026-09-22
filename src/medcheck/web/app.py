@@ -16,12 +16,12 @@ from fastapi.responses import HTMLResponse
 from fastapi.security import APIKeyHeader
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from pydantic import BaseModel, Field
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from medcheck import __version__
 from medcheck.core.config import Settings
 from medcheck.i18n import get_strings
+from medcheck.web.api import install_api
 
 TEMPLATES_DIR = Path(__file__).parent / "templates"
 STATIC_DIR = Path(__file__).parent / "static"
@@ -31,24 +31,6 @@ _api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
 # UI locales offered by the web page's language switcher. Keep in sync with the
 # AnalyzeRequest.language pattern and the i18n catalogs (medcheck/i18n/*.json).
 UI_LANGUAGES = ("en", "de", "fr", "es")
-
-
-class AnalyzeRequest(BaseModel):
-    """Validated request body for POST /api/analyze."""
-
-    source: str = Field(..., min_length=1, description="DICOM folder/ZIP path or portal URL")
-    provider: str | None = Field(default=None, description="Data provider name (auto-detected if omitted)")
-    anatomy: str | None = Field(default=None, description="Anatomy region hint, e.g. 'knee'")
-    report_format: str = Field(default="json", pattern="^(json|pdf|html)$")
-    # Keep in sync with the CLI (_REPORT_LANGUAGES) and the i18n catalogs
-    # (medcheck/i18n/*.json) so fr/es requests aren't rejected with 422.
-    language: str = Field(default="en", pattern="^(en|de|fr|es)$")
-    # Per-request consent to transmit patient-derived data to external cloud
-    # LLM APIs — mirrors the CLI --allow-cloud-llm flag.
-    allow_cloud_llm: bool = Field(
-        default=False,
-        description="Consent to sending patient-derived data to external cloud LLM APIs",
-    )
 
 
 def _make_api_key_guard(expected_key: str | None) -> Any:
@@ -82,6 +64,7 @@ class _SecurityHeadersMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next: Any) -> Any:
         response = await call_next(request)
+        response.headers["Cache-Control"] = "no-store"
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["Referrer-Policy"] = "no-referrer"
@@ -155,7 +138,7 @@ class _RateLimiter:
             hits.append(now)
             # Opportunistically drop empty buckets so the map can't grow unbounded.
             if len(self._hits) > 10_000:
-                for k in [k for k, v in self._hits.items() if not v]:
+                for k in [k for k, v in self._hits.items() if not v or now - v[-1] > self.window]:
                     del self._hits[k]
             return True
 
@@ -179,7 +162,17 @@ def _client_key(request: Request, trust_proxy_headers: bool) -> str:
 
 def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or Settings()
-    app = FastAPI(title="MedCheck", version=__version__)
+    from contextlib import asynccontextmanager
+
+    @asynccontextmanager
+    async def lifespan(app: FastAPI) -> Any:
+        yield
+        if getattr(app.state, "jobs", None) is not None:
+            app.state.jobs.close()
+
+    app = FastAPI(title="MedCheck", version=__version__, lifespan=lifespan)
+    app.state.store_lock = threading.Lock()
+    app.state.jobs = None
     require_api_key = _make_api_key_guard(settings.api_key)
     app.add_middleware(_SecurityHeadersMiddleware)
     app.add_middleware(_OriginCheckMiddleware)
@@ -223,18 +216,5 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             },
         )
 
-    @app.post("/api/analyze")
-    def analyze(
-        req: AnalyzeRequest,
-        _: None = Depends(require_api_key),
-        __: None = Depends(enforce_rate_limit),
-    ) -> dict[str, Any]:
-        # Pipeline execution is not wired up yet. Return 501 (not 200) so clients,
-        # health checks, and CI can detect that no analysis was performed; the
-        # validated source is echoed in the detail so callers can confirm parsing/auth.
-        raise HTTPException(
-            status_code=status.HTTP_501_NOT_IMPLEMENTED,
-            detail=f"Pipeline execution is not implemented yet (source={req.source!r}).",
-        )
-
+    install_api(app, settings, require_api_key, enforce_rate_limit)
     return app
