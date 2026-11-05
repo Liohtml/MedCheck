@@ -1,5 +1,5 @@
 # === Base ===
-FROM python:3.13-slim AS base
+FROM python:3.15-slim AS base
 WORKDIR /app
 
 # Create an unprivileged user to run the application (avoid running as root).
